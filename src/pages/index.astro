@@ -1,0 +1,55 @@
+---
+import Terminal from "../components/Terminal.astro";
+import GuiMode from "../components/GuiMode.astro";
+import "../styles/global.css";
+import { PROFILE } from "../data/profile";
+import { getGithubStats } from "../data/github";
+
+const ghStats = await getGithubStats("Juferoga");
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{`${PROFILE.handle}@portfolio:~$`}</title>
+    <meta name="description" content={`${PROFILE.name} — ${PROFILE.role}. Portafolio interactivo tipo terminal.`} />
+    <meta name="author" content={PROFILE.name} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={`${PROFILE.name} — ${PROFILE.title}`} />
+    <meta property="og:description" content={PROFILE.tagline} />
+    <meta property="og:url" content="https://juferoga.pro" />
+    <meta property="og:image" content="https://juferoga.pro/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:site_name" content="juferoga.pro" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={`${PROFILE.name} — ${PROFILE.title}`} />
+    <meta name="twitter:description" content={PROFILE.tagline} />
+    <meta name="twitter:image" content="https://juferoga.pro/og.png" />
+
+    <meta name="theme-color" content="#0a0e0a" />
+    <meta name="keywords" content="Juan Felipe Rodríguez Galindo, juferoga, Cloud Developer, Ingeniero de Sistemas, AWS, Angular, GNU/Linux, portafolio, Bogotá" />
+    <link rel="canonical" href="https://juferoga.pro" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>"
+    />
+  </head>
+  <body>
+    <script id="gh-stats-build" type="application/json" set:html={JSON.stringify(ghStats).replace(/</g, "\\u003c")}></script>
+    <Terminal />
+    <GuiMode stats={ghStats} />
+  </body>
+</html>

@@ -1,0 +1,27 @@
+# build output
+dist/
+# dependencies
+node_modules/
+# astro
+.astro/
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# environment
+.env
+.env.production
+# macOS
+.DS_Store
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+# python / rendercv (CV)
+.venv/
+cv/.venv/
+cv/rendercv_output/
+cv/out/
+cv/.tmp/
+.claude

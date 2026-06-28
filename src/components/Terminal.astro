@@ -1,0 +1,1999 @@
+---
+---
+
+<canvas id="bg-canvas"></canvas>
+<canvas id="matrix-canvas"></canvas>
+
+<div class="crt-overlay"></div>
+<div class="scanlines"></div>
+<div class="flicker"></div>
+
+<main class="terminal" id="terminal" aria-live="polite">
+  <header class="titlebar">
+    <div class="dots">
+      <span class="dot red" id="dot-red" title="Cerrar"></span>
+      <span class="dot yellow" id="dot-yellow" title="Minimizar"></span>
+      <span class="dot green" id="dot-green" title="Maximizar"></span>
+    </div>
+    <div class="titlebar-text" id="titlebar-text">juferoga@portfolio: ~</div>
+    <div class="titlebar-actions">
+      <button id="gui-btn" class="tb-btn tb-btn-wide" title="Cambiar a versión visual">🖥 visual</button>
+      <button id="lang-btn" class="tb-btn" title="Idioma ES/EN">🌐 ES</button>
+      <button id="sound-btn" class="tb-btn" title="Sonido de tecleo (on/off)">🔊</button>
+      <button id="theme-btn" class="tb-btn" title="Cambiar tema (verde/ámbar/azul)">◐</button>
+    </div>
+  </header>
+
+  <div class="screen" id="screen">
+    <div id="output"></div>
+
+    <div class="input-line" id="input-line" style="display:none;">
+      <span class="prompt"
+        ><span class="prompt-user">juferoga</span><span class="prompt-at">@</span><span
+          class="prompt-host">portfolio</span
+        ><span class="prompt-sep">:</span><span class="prompt-path">~</span><span
+          class="prompt-dollar">$</span
+        ></span
+      >
+      <span class="cmd-wrap">
+        <input
+          type="text"
+          id="cmd-input"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          aria-label="Comando"
+        />
+        <span class="fake-input"><span id="fi-before"></span><span class="cursor" id="cursor"> </span><span id="fi-after"></span><span class="ghost" id="ghost"></span></span>
+      </span>
+    </div>
+  </div>
+
+  <nav class="quickbar" id="quickbar" aria-label="Accesos rápidos"></nav>
+</main>
+
+<div class="hint" id="hint">escribe <b>help</b> y presiona <b>Enter</b> ↵</div>
+
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="lb-backdrop" data-lb-close></div>
+  <figure class="lb-frame">
+    <button class="lb-close" data-lb-close title="Cerrar (Esc)">✕</button>
+    <button class="lb-nav lb-prev" data-lb-prev title="Anterior (←)">‹</button>
+    <img class="lb-img" id="lb-img" src="" alt="" />
+    <button class="lb-nav lb-next" data-lb-next title="Siguiente (→)">›</button>
+    <figcaption class="lb-caption" id="lb-caption"></figcaption>
+    <div class="lb-count" id="lb-count"></div>
+  </figure>
+</div>
+
+<script>
+  import { PROFILE, PROFILE_EN } from "../data/profile";
+
+  
+  
+  const $ = <T extends Element = HTMLElement>(sel: string) =>
+    document.querySelector(sel) as T;
+
+  const output = $("#output") as HTMLDivElement;
+  const screen = $("#screen") as HTMLDivElement;
+  const inputLine = $("#input-line") as HTMLDivElement;
+  const cmdInput = $("#cmd-input") as HTMLInputElement;
+  const fiBefore = $("#fi-before") as HTMLSpanElement;
+  const fiAfter = $("#fi-after") as HTMLSpanElement;
+  const cursorEl = $("#cursor") as HTMLSpanElement;
+  const ghostEl = $("#ghost") as HTMLSpanElement;
+  const hint = $("#hint") as HTMLDivElement;
+  const themeBtn = $("#theme-btn") as HTMLButtonElement;
+  const canvas = $("#matrix-canvas") as HTMLCanvasElement;
+
+  const scrollDown = () => (screen.scrollTop = screen.scrollHeight);
+
+  function print(text = "", cls = "") {
+    const div = document.createElement("div");
+    div.className = "line" + (cls ? " " + cls : "");
+    div.innerHTML = text;
+    output.appendChild(div);
+    scrollDown();
+    return div;
+  }
+
+  function printHTML(html: string) {
+    const div = document.createElement("div");
+    div.className = "block";
+    div.innerHTML = html;
+    output.appendChild(div);
+    scrollDown();
+    return div;
+  }
+
+  function spacer() {
+    const d = document.createElement("div");
+    d.className = "spacer";
+    output.appendChild(d);
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  let bootingActive = true;
+  let skipBoot = false;
+  const bootSleep = (ms: number) =>
+    bootingActive && skipBoot ? Promise.resolve() : sleep(ms);
+
+  async function typeLine(text: string, cls = "", speed = 12) {
+    const div = print("", cls);
+    for (let i = 0; i < text.length; i++) {
+      if (bootingActive && skipBoot) {
+        div.innerHTML = esc(text);
+        scrollDown();
+        return div;
+      }
+      div.innerHTML += text[i] === "<" ? "&lt;" : text[i];
+      if (i % 2 === 0) await sleep(speed);
+      scrollDown();
+    }
+    return div;
+  }
+
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+  function levenshtein(a: string, b: string): number {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+    return dp[m][n];
+  }
+
+  
+  
+  const BANNER = [
+    "      _        __                                 ",
+    "     (_)_   _ / _| ___ _ __ ___   __ _  __ _      ",
+    "     | | | | | |_ / _ \\ '__/ _ \\ / _` |/ _` |     ",
+    "     | | |_| |  _|  __/ | | (_) | (_| | (_| |     ",
+    "    _/ |\\__,_|_|  \\___|_|  \\___/ \\__, |\\__,_|     ",
+    "   |__/                          |___/            ",
+  ].join("\n");
+
+  
+  
+  type Lang = "es" | "en";
+  let lang: Lang = "es";
+  try {
+    const saved = localStorage.getItem("lang");
+    if (saved === "en" || saved === "es") lang = saved;
+  } catch {}
+  let P = lang === "en" ? PROFILE_EN : PROFILE;
+
+  const UI = {
+    es: {
+      helpTitle: "Comandos — haz clic o escríbelos:",
+      cats: { about: "Sobre mí", work: "Trabajo", connect: "Conecta", terminal: "Terminal" },
+      tipHistory: "💡 ↑/↓ historial · Tab autocompleta",
+      eggs: "🥚 y varios comandos ocultos… prueba: matrix · neofetch · glud · pong",
+      notFound: (n: string) => `comando no encontrado: ${n}`,
+      didYouMean: (c: string) => `¿quisiste decir '${c}'?`,
+      seeHelp: "escribe 'help' para ver la lista de comandos.",
+      welcome: "Bienvenido a mi terminal. Escribe 'help' para empezar. 🚀",
+      welcomeQ: "¿Primera vez por aquí?",
+      btnTour: "▶ Recorrido guiado",
+      btnGui: "🖥 Versión visual",
+      welcomeOr: "— o si eres técnico, escribe",
+      hAbout: "// sobre-mi", hGoals: "// objetivos",
+      hNow: "// now — en qué estoy enfocado ahora mismo", hStack: "// stack",
+      hExp: "// experiencia", hEdu: "// educacion", hProj: "// proyectos",
+      hCerts: "// certificaciones", hContact: "// contacto",
+      hCv: "// cv — generado con rendercv", hSocialList: "// redes — ¡conéctate conmigo! ↗",
+      hRecs: "// recomendaciones — desde LinkedIn",
+      cvTitle: "Descarga mi CV en PDF:", cvEs: "CV en Español (PDF)", cvEn: "CV in English (PDF)",
+      cvAlso: "También:",
+      stats: {
+        head: "// github — datos de mi actividad", repos: "repositorios públicos",
+        stars: "estrellas totales", followers: "seguidores", since: "programando desde",
+        langs: "lenguajes más usados", topRepo: "repo más estrellado",
+        loading: "consultando GitHub…", unavailable: "no pude cargar las stats ahora; mira mi",
+        srcLive: "en vivo", srcCache: "caché local", srcBuild: "del último build",
+        source: (s: string, ago: string) => `fuente: ${s} · ${ago}`,
+      },
+      socialYt: "🎬 sí, tengo videítos en YouTube — pásate y suscríbete 😄",
+      contactMore: "escribe 'social' para ver TODAS mis redes 🌐",
+      nowSrc: "(inspirado en nownownow.com)",
+      tourStart: "▶ Recorrido guiado — siéntate y disfruta. (ESC para salir)",
+      tourEnd: "✓ Fin del recorrido. Usa los botones de abajo 👇 o escribe 'help'.",
+      tourStop: "(recorrido detenido) — explora a tu ritmo 👇",
+      closeA: "🔌 Intentaste apagar la terminal...",
+      closeB: "pero este portafolio nunca se apaga. 😎 ¡seguimos!",
+      langMsg: "🌐 idioma → Español",
+      desc: {
+        whoami: "Quién soy en una línea", about: "Sobre mí · mi historia",
+        skills: "Stack y tecnologías", experience: "Trayectoria profesional",
+        education: "Formación académica", projects: "Proyectos destacados",
+        certs: "Certificaciones", contact: "Cómo contactarme", social: "Mis redes",
+        resume: "Descargar / ver CV", goals: "Hacia dónde voy", now: "En qué ando ahora",
+        recommendations: "Lo que dicen de mí", photo: "Galería", theme: "Cambiar tema de color",
+        stats: "Stats de GitHub", sound: "Sonido de tecleo (on/off)", pong: "Mini-juego 🎮", lang: "Idioma ES/EN",
+        banner: "Mostrar el banner ASCII", clear: "Limpiar la pantalla", help: "Esta ayuda",
+      },
+      chips: [
+        { label: "👤 Sobre mí", cmd: "about" }, { label: "🧰 Skills", cmd: "skills" },
+        { label: "💼 Experiencia", cmd: "experience" }, { label: "🚀 Proyectos", cmd: "projects" },
+        { label: "📄 CV", cmd: "resume" }, { label: "✉️ Contacto", cmd: "contact" },
+        { label: "🌐 Redes", cmd: "social" }, { label: "▶ Recorrido", cmd: "__tour" },
+        { label: "🎮 Juego", cmd: "pong" },
+      ],
+    },
+    en: {
+      helpTitle: "Commands — click or type them:",
+      cats: { about: "About me", work: "Work", connect: "Connect", terminal: "Terminal" },
+      tipHistory: "💡 ↑/↓ history · Tab autocompletes",
+      eggs: "🥚 plus several hidden commands… try: matrix · neofetch · glud · pong",
+      notFound: (n: string) => `command not found: ${n}`,
+      didYouMean: (c: string) => `did you mean '${c}'?`,
+      seeHelp: "type 'help' to see the list of commands.",
+      welcome: "Welcome to my terminal. Type 'help' to start. 🚀",
+      welcomeQ: "First time here?",
+      btnTour: "▶ Guided tour",
+      btnGui: "🖥 Visual version",
+      welcomeOr: "— or if you're technical, type",
+      hAbout: "// about-me", hGoals: "// goals",
+      hNow: "// now — what I'm focused on right now", hStack: "// stack",
+      hExp: "// experience", hEdu: "// education", hProj: "// projects",
+      hCerts: "// certifications", hContact: "// contact",
+      hCv: "// cv — generated with rendercv", hSocialList: "// social — let's connect! ↗",
+      hRecs: "// recommendations — from LinkedIn",
+      cvTitle: "Download my CV (PDF):", cvEs: "CV in Spanish (PDF)", cvEn: "CV in English (PDF)",
+      cvAlso: "Also:",
+      stats: {
+        head: "// github — my activity data", repos: "public repositories",
+        stars: "total stars", followers: "followers", since: "coding since",
+        langs: "most used languages", topRepo: "most-starred repo",
+        loading: "querying GitHub…", unavailable: "couldn't load stats right now; check my",
+        srcLive: "live", srcCache: "local cache", srcBuild: "from last build",
+        source: (s: string, ago: string) => `source: ${s} · ${ago}`,
+      },
+      socialYt: "🎬 yep, I have videos on YouTube — drop by and subscribe 😄",
+      contactMore: "type 'social' to see ALL my networks 🌐",
+      nowSrc: "(inspired by nownownow.com)",
+      tourStart: "▶ Guided tour — sit back and enjoy. (ESC to exit)",
+      tourEnd: "✓ Tour finished. Use the buttons below 👇 or type 'help'.",
+      tourStop: "(tour stopped) — explore at your own pace 👇",
+      closeA: "🔌 You tried to power off the terminal...",
+      closeB: "but this portfolio never shuts down. 😎 let's continue!",
+      langMsg: "🌐 language → English",
+      desc: {
+        whoami: "Who I am in one line", about: "About me · my story",
+        skills: "Stack & technologies", experience: "Professional path",
+        education: "Academic background", projects: "Featured projects",
+        certs: "Certifications", contact: "How to reach me", social: "My networks",
+        resume: "Download / view CV", goals: "Where I'm going", now: "What I'm up to now",
+        recommendations: "What people say about me", photo: "Gallery", theme: "Change color theme",
+        stats: "GitHub stats", sound: "Typing sound (on/off)", pong: "Mini-game 🎮", lang: "Language ES/EN",
+        banner: "Show the ASCII banner", clear: "Clear the screen", help: "This help",
+      },
+      chips: [
+        { label: "👤 About", cmd: "about" }, { label: "🧰 Skills", cmd: "skills" },
+        { label: "💼 Experience", cmd: "experience" }, { label: "🚀 Projects", cmd: "projects" },
+        { label: "📄 CV", cmd: "resume" }, { label: "✉️ Contact", cmd: "contact" },
+        { label: "🌐 Social", cmd: "social" }, { label: "▶ Tour", cmd: "__tour" },
+        { label: "🎮 Game", cmd: "pong" },
+      ],
+    },
+  };
+  const t = () => UI[lang];
+
+  const link = (url: string, label?: string) =>
+    `<a href="${url}" target="_blank" rel="noopener">${label ?? url}</a>`;
+
+  
+  
+  interface GHStats {
+    login: string; name: string; followers: number; publicRepos: number;
+    totalStars: number; createdYear: number;
+    topLanguages: { name: string; count: number }[];
+    topRepo: { name: string; stars: number; url: string } | null;
+    fetchedAt: string;
+  }
+  const GH_USER = "Juferoga";
+  const STATS_TTL = 1000 * 60 * 60 * 6; // 6 h de caché en el cliente
+
+  function buildStats(): GHStats | null {
+    try { return JSON.parse(document.getElementById("gh-stats-build")?.textContent || "null"); }
+    catch { return null; }
+  }
+  function readStatsCache(): { at: number; data: GHStats } | null {
+    try { const r = localStorage.getItem("ghStats"); const o = r ? JSON.parse(r) : null; return o && o.data ? o : null; }
+    catch { return null; }
+  }
+  function writeStatsCache(data: GHStats) {
+    try { localStorage.setItem("ghStats", JSON.stringify({ at: Date.now(), data })); } catch {}
+  }
+
+  async function fetchLiveStats(): Promise<GHStats | null> {
+    try {
+      const headers = { Accept: "application/vnd.github+json" };
+      const [uRes, rRes] = await Promise.all([
+        fetch(`https://api.github.com/users/${GH_USER}`, { headers }),
+        fetch(`https://api.github.com/users/${GH_USER}/repos?per_page=100&type=owner&sort=pushed`, { headers }),
+      ]);
+      if (!uRes.ok || !rRes.ok) return null;
+      const u: any = await uRes.json();
+      const repos: any[] = await rRes.json();
+      if (!Array.isArray(repos)) return null;
+      const own = repos.filter((r) => !r.fork);
+      const totalStars = own.reduce((s, r) => s + (r.stargazers_count || 0), 0);
+      const lc: Record<string, number> = {};
+      for (const r of own) if (r.language) lc[r.language] = (lc[r.language] || 0) + 1;
+      const topLanguages = Object.entries(lc).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, count]) => ({ name, count }));
+      const top = own.slice().sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0))[0];
+      return {
+        login: u.login, name: u.name || u.login, followers: u.followers || 0,
+        publicRepos: u.public_repos || 0, totalStars, createdYear: new Date(u.created_at).getFullYear(),
+        topLanguages, topRepo: top ? { name: top.name, stars: top.stargazers_count || 0, url: top.html_url } : null,
+        fetchedAt: new Date().toISOString(),
+      };
+    } catch { return null; }
+  }
+
+  function relTime(iso: string): string {
+    try {
+      const diff = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(diff / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+      if (d > 0) return lang === "en" ? `${d}d ago` : `hace ${d}d`;
+      if (h > 0) return lang === "en" ? `${h}h ago` : `hace ${h}h`;
+      if (m > 0) return lang === "en" ? `${m}m ago` : `hace ${m}m`;
+      return lang === "en" ? "just now" : "recién";
+    } catch { return ""; }
+  }
+
+  function renderStatsHTML(s: GHStats, src: string): string {
+    const S = t().stats;
+    const maxL = Math.max(1, ...s.topLanguages.map((l) => l.count));
+    const langs = s.topLanguages.map((l) =>
+      `<div class="gh-lang"><span class="gh-lang-name">${esc(l.name)}</span><span class="gh-bar"><span style="width:${Math.round((l.count / maxL) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`
+    ).join("");
+    const topRepo = s.topRepo ? `${link(s.topRepo.url, esc(s.topRepo.name))} <span class="dim">★ ${s.topRepo.stars}</span>` : "—";
+    return `<div class="gh-stats">
+      <div class="gh-grid">
+        <div class="gh-stat"><span class="gh-num">${s.publicRepos}</span><span class="gh-lbl">${S.repos}</span></div>
+        <div class="gh-stat"><span class="gh-num">★ ${s.totalStars}</span><span class="gh-lbl">${S.stars}</span></div>
+        <div class="gh-stat"><span class="gh-num">${s.followers}</span><span class="gh-lbl">${S.followers}</span></div>
+        <div class="gh-stat"><span class="gh-num">${s.createdYear}</span><span class="gh-lbl">${S.since}</span></div>
+      </div>
+      <div class="gh-langs"><div class="gh-sub">${S.langs}</div>${langs}</div>
+      <div class="gh-toprepo"><span class="gh-sub">${S.topRepo}:</span> ${topRepo}</div>
+      <div class="gh-src">${S.source(src, relTime(s.fetchedAt))}</div>
+    </div>`;
+  }
+
+  const COMMANDS: Record<
+    string,
+    { desc: string; hidden?: boolean; run: (args: string[]) => void | Promise<void> }
+  > = {
+    help: {
+      desc: "Muestra la lista de comandos disponibles",
+      run: () => {
+        print(t().helpTitle, "bright");
+        const cats = t().cats as Record<string, string>;
+        const groups: [string, string[]][] = [
+          [cats.about, ["whoami", "about", "now", "goals"]],
+          [cats.work, ["skills", "experience", "education", "projects", "certs", "recommendations", "stats"]],
+          [cats.connect, ["contact", "social", "resume"]],
+          [cats.terminal, ["theme", "sound", "lang", "pong", "clear"]],
+        ];
+        let html = '<div class="help-cats">';
+        for (const [label, cmds] of groups) {
+          html += `<div class="help-cat"><span class="help-cat-label">${label}</span><span class="help-cat-cmds">`;
+          html += cmds.map((c) => `<button class="help-cmd" data-cmd="${c}">${c}</button>`).join('<span class="sep">·</span>');
+          html += "</span></div>";
+        }
+        html += "</div>";
+        printHTML(html);
+        print(t().tipHistory, "dim");
+        print(t().eggs, "dim");
+      },
+    },
+
+    whoami: {
+      desc: "Quién soy",
+      run: () => {
+        print(`${P.name}`, "bright");
+        print(P.role, "accent");
+        print(P.title);
+        print(`📍 ${P.location}`, "dim");
+        printHTML(`<div class="quote">"${P.tagline}"</div>`);
+      },
+    },
+
+    about: {
+      desc: "Sobre mí",
+      run: () => {
+        print(t().hAbout, "dim");
+        P.about.forEach((l) => print(esc(l)));
+        spacer();
+        printHTML(
+          `<div class="photo-row">
+             <div class="photo-slot"><img class="lb" data-gallery="me" data-caption="Juan Felipe Rodríguez Galindo" src="${P.avatar}" alt="foto" onerror="this.parentElement.innerHTML='[ tu_foto.png ]<br>160x160'"></div>
+             <figure class="photo-slot photo-wide"><img class="lb" data-gallery="me" data-caption="SLUD XXII — charla &quot;El futuro de Linux&quot; (ex-Director del GLUD)" src="/assets/photos/glud-talk.jpg" alt="charla SLUD" onerror="this.parentElement.innerHTML='[ conferencia ]'"></figure>
+           </div>`
+        );
+      },
+    },
+
+    goals: {
+      desc: "Mis objetivos",
+      run: () => {
+        print(t().hGoals, "dim");
+        P.goals.forEach((l) => print("→ " + esc(l), "accent"));
+      },
+    },
+
+    now: {
+      desc: "En qué ando ahora",
+      run: () => {
+        print(t().hNow, "dim");
+        P.now.forEach((l) => print(esc(l)));
+        print("");
+        print(t().nowSrc, "dim");
+      },
+    },
+
+    recommendations: {
+      desc: "Lo que dicen de mí",
+      run: () => {
+        print(t().hRecs, "dim");
+        for (const tt of P.testimonials) {
+          printHTML(
+            `<div class="entry">
+               <div class="desc">“${esc(tt.quote)}”</div>
+               <div class="meta">— ${esc(tt.name)}</div>
+               <div class="period">${esc(tt.role)}</div>
+             </div>`
+          );
+        }
+      },
+    },
+
+    stats: {
+      desc: "Stats de GitHub",
+      run: async () => {
+        print(t().stats.head, "dim");
+        const cache = readStatsCache();
+        const fresh = !!cache && Date.now() - cache.at < STATS_TTL;
+        const initial: GHStats | null = fresh ? cache!.data : (buildStats() || (cache ? cache.data : null));
+        const src = fresh ? t().stats.srcCache : t().stats.srcBuild;
+        const block = printHTML(
+          initial ? renderStatsHTML(initial, src) : `<div class="gh-stats"><div class="dim">${t().stats.loading}</div></div>`
+        );
+        scrollDown();
+        if (!fresh) {
+          const live = await fetchLiveStats();
+          if (live) { writeStatsCache(live); block.innerHTML = renderStatsHTML(live, t().stats.srcLive); }
+          else if (!initial) {
+            block.innerHTML = `<div class="dim">${t().stats.unavailable} ${link(P.contact.github, "GitHub")}.</div>`;
+          }
+          scrollDown();
+        }
+      },
+    },
+
+    skills: {
+      desc: "Tecnologías",
+      run: () => {
+        print(t().hStack, "dim");
+        for (const [cat, items] of Object.entries(P.skills)) {
+          let html = `<div class="skillset"><span class="cat">${cat}</span><br>`;
+          html += items.map((s) => `<span class="badge">${esc(s)}</span>`).join("");
+          html += "</div>";
+          printHTML(html);
+        }
+      },
+    },
+
+    experience: {
+      desc: "Experiencia",
+      run: () => {
+        print(t().hExp, "dim");
+        for (const e of P.experience) {
+          let html = `<div class="entry">
+            <div class="role">${esc(e.role)}</div>
+            <div class="meta">${esc(e.company)}</div>
+            <div class="period">${esc(e.period)}</div>`;
+          html += e.lines.map((l) => `<div class="desc">${esc(l)}</div>`).join("");
+          html += "</div>";
+          printHTML(html);
+        }
+      },
+    },
+
+    education: {
+      desc: "Educación",
+      run: () => {
+        print(t().hEdu, "dim");
+        for (const e of P.education) {
+          printHTML(`<div class="entry">
+            <div class="role">${esc(e.degree)}</div>
+            <div class="meta">${esc(e.school)}</div>
+            <div class="period">${esc(e.period)}</div>
+          </div>`);
+        }
+      },
+    },
+
+    projects: {
+      desc: "Proyectos",
+      run: () => {
+        print(t().hProj, "dim");
+        for (const pr of P.projects) {
+          printHTML(`<div class="entry">
+            <div class="role">${esc(pr.name)} ${link(pr.url, "↗")}</div>
+            <div class="meta">${esc(pr.tech)}</div>
+            <div class="desc">${esc(pr.desc)}</div>
+          </div>`);
+        }
+        spacer();
+        print(lang === "en" ? "// work in pictures — click to enlarge 🔍" : "// trabajo en imágenes — clic para ampliar 🔍", "dim");
+        printHTML(
+          `<div class="photo-row">` +
+            P.gallery.map((g) =>
+              `<figure class="photo-slot photo-wide"><img class="lb" data-gallery="work" data-caption="${esc(g.caption)}" src="${g.src}" alt="${esc(g.caption)}" loading="lazy"></figure>`
+            ).join("") +
+          `</div>`
+        );
+      },
+    },
+
+    certs: {
+      desc: "Certificaciones",
+      run: () => {
+        print(t().hCerts, "dim");
+        P.certs.forEach((c) => print("✓ " + esc(c), "accent"));
+      },
+    },
+
+    contact: {
+      desc: "Contacto",
+      run: () => {
+        print(t().hContact, "dim");
+        print(`📧 ${link("mailto:" + P.contact.email, P.contact.email)}`);
+        print(`🐙 ${link(P.contact.github, "GitHub: @" + P.handle)}`);
+        print(`💼 ${link(P.contact.linkedin, "LinkedIn: /in/" + P.handle)}`);
+        print(`🌐 ${link(P.contact.web, "Web personal")}`);
+        print("");
+        print(t().contactMore, "dim");
+      },
+    },
+
+    social: {
+      desc: "Redes sociales",
+      run: () => {
+        print(t().hSocialList, "dim");
+        for (const s of P.socials) {
+          print(
+            `${s.icon}  ${link(s.url, s.name)} <span class="dim">${esc(s.handle)}</span>`
+          );
+        }
+        print("");
+        print(t().socialYt, "accent");
+      },
+    },
+
+    resume: {
+      desc: "CV",
+      run: () => {
+        print(t().hCv, "dim");
+        print(t().cvTitle, "bright");
+        print("→ " + link("/cv/JuanFelipeRodriguez_CV_es.pdf", t().cvEs), "accent");
+        print("→ " + link("/cv/JuanFelipeRodriguez_CV_en.pdf", t().cvEn), "accent");
+        print("");
+        print(t().cvAlso + " " + link(P.contact.linkedin, "LinkedIn") + " · " + link(P.contact.web, "web"), "dim");
+      },
+    },
+
+    photo: {
+      desc: "Galería",
+      run: () => {
+        print(lang === "en" ? "// gallery — click any photo to enlarge 🔍" : "// galería — clic en cualquier foto para ampliar 🔍", "dim");
+        printHTML(
+          `<div class="photo-row">` +
+            P.gallery.map((g) =>
+              `<figure class="photo-slot photo-wide"><img class="lb" data-gallery="work" data-caption="${esc(g.caption)}" src="${g.src}" alt="${esc(g.caption)}" loading="lazy"></figure>`
+            ).join("") +
+          `</div>`
+        );
+      },
+    },
+
+    banner: {
+      desc: "Banner ASCII",
+      run: () => print(esc(BANNER), "ascii"),
+    },
+
+    theme: {
+      desc: "Cambiar tema",
+      run: (args) => {
+        const themes = ["", "theme-amber", "theme-cyber"];
+        const names = ["verde", "ámbar", "azul"];
+        const byName: Record<string, number> = {
+          verde: 0, green: 0,
+          ambar: 1, ámbar: 1, amber: 1,
+          azul: 2, cyber: 2, blue: 2,
+        };
+        let idx: number;
+        const arg = (args[0] ?? "").toLowerCase();
+        if (arg in byName) {
+          idx = byName[arg];
+        } else {
+          const cur = themes.indexOf(document.body.className.trim());
+          idx = (cur + 1) % themes.length;
+        }
+        document.body.className = themes[idx];
+        try { localStorage.setItem("theme", themes[idx]); } catch {}
+        print(`tema → ${names[idx]}`, "accent");
+      },
+    },
+
+    pong: {
+      desc: "Mini-juego: PONG 🎮 (con muro travieso)",
+      run: () => {
+        print("🎮 PONG.SH — primero en llegar a 5. ¡Esquiva el muro amarillo!", "accent");
+        print("controles: W/S o ↑/↓ o el ratón · ESC/Q para salir", "dim");
+        startPong();
+      },
+    },
+
+    lang: {
+      desc: "Idioma ES/EN",
+      run: (args) => {
+        const a = (args[0] ?? "").toLowerCase();
+        const target: Lang = a === "en" || a === "es" ? a : lang === "es" ? "en" : "es";
+        setLang(target);
+        print(t().langMsg, "accent");
+      },
+    },
+
+    sound: {
+      desc: "Sonido on/off",
+      run: (args) => {
+        const a = (args[0] ?? "").toLowerCase();
+        if (a === "on" || a === "off") soundOn = a === "on";
+        else soundOn = !soundOn;
+        try { localStorage.setItem("sound", soundOn ? "on" : "off"); } catch {}
+        updateSoundBtn();
+        if (soundOn) beep(880, 45);
+        print(`🔊 sonido de tecleo: ${soundOn ? "ON" : "OFF"}`, "accent");
+      },
+    },
+
+    clear: {
+      desc: "Limpiar",
+      run: () => {
+        output.innerHTML = "";
+      },
+    },
+
+    sudo: {
+      desc: "",
+      hidden: true,
+      run: (args) => {
+        const a = args.join(" ").toLowerCase();
+        if (a.includes("rm -rf")) {
+          print("Permission denied: nice try 😏", "error");
+          print("(el software libre no se borra, se comparte)", "dim");
+          return;
+        }
+        if (a.includes("make me a sandwich")) {
+          print("🥪 Okay.", "accent");
+          print("(xkcd #149 — ahora sí tienes permisos)", "dim");
+          return;
+        }
+        if (a.includes("sandwich")) {
+          print("What? Make it yourself.", "warn");
+          print("(tip: prueba 'sudo make me a sandwich' 🥪)", "dim");
+          return;
+        }
+        print(`[sudo] password for ${P.handle}: `, "warn");
+        print("Lo siento, este incidente será reportado. 👮", "error");
+        print("(juferoga is NOT in the sudoers file)", "dim");
+      },
+    },
+
+    matrix: {
+      desc: "",
+      hidden: true,
+      run: async () => {
+        print("Wake up, Neo...", "accent");
+        await sleep(600);
+        startMatrix();
+      },
+    },
+
+    neofetch: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        const logo = [
+          "       _nnnn_      ",
+          "      dGGGGMMb     ",
+          "     @p~qp~~qMb    ",
+          "     M|@||@) M|    ",
+          "     @,----.JM|    ",
+          "    JS^\\__/  qKL   ",
+          "   dZP        qKRb ",
+          "  dZP          qKKb",
+          " fZP            SMMb",
+          " HZM            MMMM",
+          " FqM            MMMM",
+        ];
+        const info = [
+          `<span class="accent">${P.handle}</span>@<span class="accent">portfolio</span>`,
+          "-----------------",
+          `<span class="accent">OS:</span> GNU/Linux (obvio 🐧)`,
+          `<span class="accent">Host:</span> ${P.title}`,
+          `<span class="accent">Role:</span> ${P.role}`,
+          `<span class="accent">Shell:</span> bash + mucha cafeína`,
+          `<span class="accent">Uptime:</span> coding since 2016`,
+          `<span class="accent">Location:</span> ${P.location}`,
+          `<span class="accent">Repos:</span> 85+ en GitHub`,
+          `<span class="accent">Motto:</span> "${P.tagline}"`,
+        ];
+        let html = '<div style="display:flex;gap:20px;flex-wrap:wrap"><pre class="ascii" style="margin:0">';
+        html += logo.join("\n");
+        html += '</pre><div>' + info.map((i) => `<div class="line">${i}</div>`).join("") + "</div></div>";
+        printHTML(html);
+      },
+    },
+
+    coffee: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        print("      ( (", "dim");
+        print("       ) )", "dim");
+        print("    ........", "accent");
+        print("    |      |]", "accent");
+        print("    \\      /", "accent");
+        print("     `----'", "accent");
+        print("☕ café recargado. productividad +100%", "warn");
+      },
+    },
+
+    ls: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        print(
+          "about.md  skills.json  experience.log  projects/  secrets/  .bashrc",
+          "accent"
+        );
+        print("(prueba 'cat <archivo>' — p.ej. 'cat secrets/.hidden' 👀)", "dim");
+      },
+    },
+
+    cat: {
+      desc: "",
+      hidden: true,
+      run: (args) => {
+        const raw = args.join(" ").trim();
+        const f = raw.replace(/^\.\//, "").replace(/\/+$/, "").toLowerCase();
+
+        if (!f) {
+          print("uso: cat <archivo>   (prueba 'ls' para ver los archivos)", "warn");
+          return;
+        }
+
+        const files: Record<string, () => void> = {
+          "about.md": () => COMMANDS.about.run([]),
+          "skills.json": () => COMMANDS.skills.run([]),
+          "experience.log": () => COMMANDS.experience.run([]),
+          ".bashrc": () => {
+            print('# ~/.bashrc de juferoga', "dim");
+            print('alias coffee="echo productividad++"', "dim");
+            print('alias please="sudo"', "dim");
+            print("export PASSION=software_libre", "dim");
+            print("export EDITOR=vim   # no juzgues", "dim");
+            print('export MOTTO="Cambiando el mundo una línea a la vez"', "dim");
+          },
+        };
+
+        if (f === "projects" || f === "secrets") {
+          print(`cat: ${esc(raw)}: Is a directory`, "error");
+          if (f === "projects") print("(prueba 'projects' o 'cat projects/...' 😉)", "dim");
+          if (f === "secrets") print("(¿qué habrá en secrets/? prueba 'cat secrets/.hidden')", "dim");
+          return;
+        }
+
+        if (f.includes("secret") || f.includes(".hidden")) {
+          print("🐱 nyan~ encontraste un secreto:", "accent");
+          printHTML(`<div class="quote">"El código abierto no es solo software, es una filosofía de vida." — ${P.handle}</div>`);
+          print("pssst… también existe el Konami Code 🎮", "dim");
+          return;
+        }
+
+        const handler = files[f];
+        if (handler) handler();
+        else print(`cat: ${esc(raw)}: No such file or directory`, "error");
+      },
+    },
+
+    pwd: { desc: "", hidden: true, run: () => print("/home/juferoga/passion/open-source", "accent") },
+    date: { desc: "", hidden: true, run: () => print(new Date().toString(), "accent") },
+    echo: { desc: "", hidden: true, run: (a) => print(esc(a.join(" "))) },
+    vim: { desc: "", hidden: true, run: () => print("E: para salir de vim, reinicia el universo. (:q! tampoco funciona aquí 😎)", "warn") },
+    exit: { desc: "", hidden: true, run: () => print("No puedes irte, apenas estás conociéndome 😏", "warn") },
+    hack: {
+      desc: "",
+      hidden: true,
+      run: async () => {
+        const lines = [
+          "Initializing exploit framework...",
+          "Bypassing firewall [████████░░] 80%",
+          "Accessing mainframe... ACCESS GRANTED",
+          "Downloading the entire internet... done.",
+          "Just kidding 😄 — soy de los buenos. #SoftwareLibre",
+        ];
+        for (const l of lines) {
+          await typeLine(l, "accent", 6);
+          await sleep(250);
+        }
+      },
+    },
+    achievements: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        const n = getCombo();
+        print("// logros — combo clear → ls", "dim");
+        print(`combos completados: ${n}`, "accent");
+        print("");
+        for (const tier of [1, 10, 25, 50, 100]) {
+          const got = n >= tier;
+          print(`${got ? "✅" : "🔒"} ${COMBO_TIERS[tier]}`, got ? "accent" : "dim");
+        }
+        if (n === 0) print("\npista: escribe 'clear' y luego 'ls' 😉", "dim");
+      },
+    },
+    linux: { desc: "", hidden: true, run: () => print("🐧 'I'd just like to interject for a moment...' — GNU/Linux forever.", "accent") },
+    ai: { desc: "", hidden: true, run: () => print("🤖 La IA es mi siguiente frontera. Construyendo el futuro, un prompt a la vez.", "accent") },
+
+    glud: {
+      desc: "",
+      hidden: true,
+      run: async () => {
+        const koko = [
+          "                                                    ██                ",
+            "                                                 █████                ",
+            "               ██████████                   █████                     ",
+            "                         █████          ██████                        ",
+            "                ███   ████████████ █     ██                           ",
+            "              ██  ████████████████       █ █                          ",
+            "                ███    ██████████        █  █                         ",
+            "                █   ████████████        ███                           ",
+            "               █  ██  ███████████  █ ████                             ",
+            "                 █  ██          ████████                              ",
+            "                █  ██             ███████                             ",
+            "                  ██               ██████                             ",
+            "                                    ██████                            ",
+            "                                    ██████                            ",
+            "                                    ██████                            ",
+            "                                    ██████                            ",
+            "                                   ███████                            ",
+            "                                  ███████                             ",
+            "                                 ███████                              ",
+            "                                 ██████                               ",
+            "                            █    ███                                  ",
+            "                            ████ ███                                  ",
+            "                           ██     █                                   ",
+            "                                 ██                                   ",
+            "                                ███                                   ",
+            "                                 █████                                ",
+            "                                                                      ",
+            "                    ███████  █     █     █ ███████                    ",
+            "                  ██       █ █     █     █ █      █                   ",
+            "                  █          █     █     █ █      ██                  ",
+            "                  █   ██████ █     █     █ █      ██                  ",
+            "                  ██      ██ █     ██   ██ █     ██                   ",
+            "                    ██████   █████  █████  ██████                     ",
+            "                                                                      ",
+        ].join("\n");
+        print(koko, "ascii");
+        await sleep(120);
+        print("GLUD · Grupo GNU/Linux — Universidad Distrital", "bright");
+        print("Kokopelli, nuestra mascota: música, movimiento y comunidad. 🎶", "dim");
+        print("");
+        print("// mis años en el GLUD", "dim");
+        const lines = [
+          "🐧 Director General (2021–2022) y profesor desde 2019.",
+          "📚 Enseñé fundamentos de GNU/Linux y software libre a la comunidad.",
+          "🤝 Construimos comunidad: charlas, talleres e instalaciones.",
+          "❤️  Aquí nació mi pasión por el código abierto.",
+          "✊ \"El software libre no es gratis, es libre.\"",
+        ];
+        for (const l of lines) { print(l, "accent"); await sleep(80); }
+        print("");
+        printHTML(
+          `<div class="photo-row">
+             <figure class="photo-slot photo-wide">
+               <img class="lb" data-gallery="glud" data-caption="SLUD XXII — charla &quot;El futuro de Linux&quot;, como ex-Director del GLUD 🐧"
+                 src="/assets/photos/glud-talk.jpg" alt="Juan Felipe presentando en el SLUD XXII"
+                 onerror="this.parentElement.innerHTML='[ charla SLUD ]'">
+             </figure>
+           </div>
+           <div class="dim">↑ SLUD XXII — charla "El futuro de Linux" 🐧</div>`
+        );
+        printHTML(`<div class="quote">Gracias GLUD por enseñarme a compartir conocimiento. 💚</div>`);
+      },
+    },
+
+    fortune: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        const quotes = [
+          "\"Cambiando el mundo una línea a la vez.\" — juferoga",
+          "\"Talk is cheap. Show me the code.\" — Linus Torvalds",
+          "\"El software libre es una cuestión de libertad, no de precio.\" — RMS",
+          "\"First, solve the problem. Then, write the code.\" — John Johnson",
+          "\"Cualquier tonto escribe código que una máquina entiende. Los buenos programadores escriben código que los humanos entienden.\" — M. Fowler",
+          "\"La simplicidad es la máxima sofisticación.\" — Leonardo da Vinci",
+          "\"It works on my machine.\" — todos, alguna vez",
+        ];
+        const i = Math.floor((Date.now() / 1000) % quotes.length);
+        printHTML(`<div class="quote">${esc(quotes[i])}</div>`);
+      },
+    },
+
+    cowsay: {
+      desc: "",
+      hidden: true,
+      run: (args) => {
+        const msg = (args.join(" ") || "¡Muuu! prueba: cowsay hola").slice(0, 40);
+        const top = " " + "_".repeat(msg.length + 2);
+        const bot = " " + "-".repeat(msg.length + 2);
+        const cow = [
+          top,
+          `< ${msg} >`,
+          bot,
+          "        \\   ^__^",
+          "         \\  (oo)\\_______",
+          "            (__)\\       )\\/\\",
+          "                ||----w |",
+          "                ||     ||",
+        ].join("\n");
+        print(esc(cow), "ascii");
+      },
+    },
+
+    sl: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        const train = [
+          "      ====        ________                ___________ ",
+          "  _D _|  |_______/        \\__I_I_____===__|_________| ",
+          "   |(_)---  |   H\\________/ |   |        =|___ ___|   ",
+          "   /     |  |   H  |  |     |   |         ||_| |_||   ",
+          "  |      |  |   H  |__--------------------| [___] |   ",
+          "  | ________|___H__/__|_____/[][]~\\_______|       |   ",
+          "  |/ |   |-----------I_____I [][] []  D   |=======|__ ",
+          "🚂  choo choo! (¿querías 'ls'? jeje)",
+        ].join("\n");
+        print(esc(train), "accent");
+      },
+    },
+
+    history: {
+      desc: "",
+      hidden: true,
+      run: () => {
+        if (!history.length) { print("(historial vacío)", "dim"); return; }
+        history.slice(-15).forEach((h, i) => print(`  ${i + 1}  ${esc(h)}`, "dim"));
+      },
+    },
+
+    man: {
+      desc: "",
+      hidden: true,
+      run: (args) => {
+        const c = (args[0] || "").toLowerCase();
+        const real = ALIASES[c] ?? c;
+        if (COMMANDS[real]) {
+          print(`MANUAL — ${esc(real)}`, "bright");
+          print(COMMANDS[real].desc || "comando oculto. exploralo tú mismo 😉", "dim");
+        } else {
+          print("What manual page do you want? (uso: man <comando>)", "warn");
+        }
+      },
+    },
+  };
+
+  const ALIASES: Record<string, string> = {
+    "sobre-mi": "about",
+    "sobremi": "about",
+    "habilidades": "skills",
+    "experiencia": "experience",
+    "educacion": "education",
+    "proyectos": "projects",
+    "contacto": "contact",
+    "cv": "resume",
+    "objetivos": "goals",
+    "?": "help",
+    "ayuda": "help",
+    "cls": "clear",
+    "fotos": "photo",
+    "logros": "achievements",
+    "redes": "social",
+    "audio": "sound",
+    "recomendaciones": "recommendations",
+    "github": "stats",
+    "gh": "stats",
+    "estadisticas": "stats",
+    "idioma": "lang",
+    "language": "lang",
+    "testimonials": "recommendations",
+    "testimonios": "recommendations",
+    "reviews": "recommendations",
+    "game": "pong",
+    "juego": "pong",
+    "play": "pong",
+  };
+
+  
+  
+  const COMBO_TIERS: Record<number, string> = {
+    1: "🥉 Primer Combo — descubriste el ritual clear → ls",
+    10: "🥈 Manos Rápidas — clear → ls ×10",
+    25: "🥇 Hacker en Práctica — clear → ls ×25",
+    50: "🏆 Maestro del Terminal — clear → ls ×50",
+    100: "👑 LEYENDA VIVIENTE — clear → ls ×100",
+  };
+
+  let lastCmdKey = "";
+
+  function getCombo(): number {
+    try { return parseInt(localStorage.getItem("comboClearLs") || "0", 10) || 0; } catch { return 0; }
+  }
+  function setCombo(n: number) {
+    try { localStorage.setItem("comboClearLs", String(n)); } catch {}
+  }
+
+  function unlockAchievement(text: string, count: number) {
+    printHTML(
+      `<div class="achievement">
+         <div class="ach-title">🎖️ LOGRO DESBLOQUEADO</div>
+         <div class="ach-body">${text}</div>
+         <div class="ach-sub">combos totales: ${count}</div>
+       </div>`
+    );
+  }
+
+  function registerComboStep(key: string) {
+    if (key === "ls" && lastCmdKey === "clear") {
+      const n = getCombo() + 1;
+      setCombo(n);
+      if (COMBO_TIERS[n]) unlockAchievement(COMBO_TIERS[n], n);
+    }
+  }
+
+  
+  
+  async function execute(raw: string) {
+    const trimmed = raw.trim();
+    const echo = document.createElement("div");
+    echo.className = "line cmd-echo";
+    echo.innerHTML =
+      `<span class="prompt-user">juferoga</span><span class="prompt-at">@</span><span class="prompt-host">portfolio</span><span class="prompt-sep">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span> ` +
+      esc(trimmed);
+    output.appendChild(echo);
+
+    if (!trimmed) {
+      scrollDown();
+      return;
+    }
+
+    const [name, ...args] = trimmed.split(/\s+/);
+    const key = ALIASES[name.toLowerCase()] ?? name.toLowerCase();
+    const cmd = COMMANDS[key];
+
+    spacer();
+    if (cmd) {
+      await cmd.run(args);
+      registerComboStep(key);
+      lastCmdKey = key;
+    } else {
+      print(t().notFound(esc(name)), "error");
+      const candidates = [...PUBLIC_CMDS, ...Object.keys(ALIASES)];
+      let best = "", bestD = Infinity;
+      for (const c of candidates) {
+        const d = levenshtein(key, c);
+        if (d < bestD) { bestD = d; best = c; }
+      }
+      if (best && bestD <= 3) {
+        const sugg = ALIASES[best] ?? best;
+        print(t().didYouMean(esc(sugg)), "warn");
+      }
+      print(t().seeHelp, "dim");
+      lastCmdKey = ""; // un comando inválido rompe el combo
+    }
+    spacer();
+    scrollDown();
+  }
+
+  
+  
+  const history: string[] = [];
+  let histIdx = -1;
+
+  const PUBLIC_CMDS = Object.keys(COMMANDS).filter((k) => !COMMANDS[k].hidden);
+
+  function syncFake() {
+    const v = cmdInput.value;
+    const pos = cmdInput.selectionStart ?? v.length;
+    fiBefore.textContent = v.slice(0, pos);
+    const ch = v.slice(pos, pos + 1);
+    cursorEl.textContent = ch === "" ? " " : ch;
+    fiAfter.textContent = v.slice(pos + 1);
+    const gh = pos === v.length ? ghostSuggestion(v) : "";
+    if (gh) {
+      cursorEl.textContent = gh[0];
+      ghostEl.textContent = gh.slice(1);
+    } else {
+      ghostEl.textContent = "";
+    }
+  }
+
+  function ghostSuggestion(v: string): string {
+    if (!v) return "";
+    const lower = v.toLowerCase();
+    const pool = [...PUBLIC_CMDS, ...Object.keys(ALIASES)];
+    const match = pool.find((c) => c.startsWith(lower) && c !== lower);
+    return match ? match.slice(v.length) : "";
+  }
+
+  function setValue(val: string) {
+    cmdInput.value = val;
+    const end = val.length;
+    cmdInput.setSelectionRange(end, end);
+    syncFake();
+  }
+
+  cmdInput.addEventListener("input", () => {
+    syncFake();
+    beep(600 + Math.random() * 90, 13); // tap de tecla (pitch ligeramente variable)
+  });
+  ["keyup", "click", "select", "focus"].forEach((ev) =>
+    cmdInput.addEventListener(ev, syncFake)
+  );
+
+  cmdInput.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
+      beep(360, 28); // "intro" más grave
+      const val = cmdInput.value;
+      if (val.trim()) {
+        history.push(val);
+        histIdx = history.length;
+      }
+      setValue("");
+      hideHint();
+      await execute(val);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (histIdx > 0) {
+        histIdx--;
+        setValue(history[histIdx] ?? "");
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (histIdx < history.length - 1) {
+        histIdx++;
+        setValue(history[histIdx] ?? "");
+      } else {
+        histIdx = history.length;
+        setValue("");
+      }
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const g = ghostSuggestion(cmdInput.value);
+      if (g) setValue(cmdInput.value + g);
+    } else if (e.key === "ArrowRight") {
+      const atEnd = (cmdInput.selectionStart ?? 0) === cmdInput.value.length;
+      const g = atEnd ? ghostSuggestion(cmdInput.value) : "";
+      if (g) { e.preventDefault(); setValue(cmdInput.value + g); }
+      else requestAnimationFrame(syncFake);
+    } else if (e.key === "l" && e.ctrlKey) {
+      e.preventDefault();
+      output.innerHTML = "";
+    } else {
+      requestAnimationFrame(syncFake);
+    }
+  });
+
+  document.addEventListener("click", () => {
+    if (pongActive) return;
+    const sel = window.getSelection();
+    if (!sel || sel.toString() === "") cmdInput.focus();
+  });
+
+  
+  
+  themeBtn.addEventListener("click", () => COMMANDS.theme.run([]));
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved) document.body.className = saved;
+  } catch {}
+
+  
+  
+  const soundBtn = $("#sound-btn") as HTMLButtonElement;
+  let soundOn = true; // activo por defecto
+  try {
+    const s = localStorage.getItem("sound");
+    if (s !== null) soundOn = s === "on"; // respeta la preferencia guardada
+  } catch {}
+  let audioCtx: AudioContext | null = null;
+
+  function updateSoundBtn() {
+    soundBtn.textContent = soundOn ? "🔊" : "🔇";
+  }
+  updateSoundBtn();
+
+  function beep(freq = 660, dur = 18, vol = 0.04) {
+    if (!soundOn) return;
+    try {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      if (!audioCtx) audioCtx = new AC();
+      const ctx = audioCtx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime;
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur / 1000);
+      osc.start(t);
+      osc.stop(t + dur / 1000);
+    } catch {}
+  }
+
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem("sound", soundOn ? "on" : "off"); } catch {}
+    updateSoundBtn();
+    if (soundOn) beep(880, 40); // confirmación
+  });
+
+  
+  
+  const terminalEl = $("#terminal") as HTMLElement;
+  const dotRed = $("#dot-red") as HTMLElement;
+  const dotYellow = $("#dot-yellow") as HTMLElement;
+  const dotGreen = $("#dot-green") as HTMLElement;
+  const titlebarText = $("#titlebar-text") as HTMLElement;
+
+  dotGreen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    terminalEl.classList.remove("minimized");
+    terminalEl.classList.toggle("maximized");
+    beep(720, 30);
+    cmdInput.focus();
+  });
+
+  dotYellow.addEventListener("click", (e) => {
+    e.stopPropagation();
+    terminalEl.classList.toggle("minimized");
+    beep(480, 30);
+  });
+  titlebarText.addEventListener("click", () => {
+    if (terminalEl.classList.contains("minimized")) {
+      terminalEl.classList.remove("minimized");
+      cmdInput.focus();
+    }
+  });
+
+  let poweringOff = false;
+  dotRed.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (poweringOff || terminalEl.classList.contains("minimized")) return;
+    poweringOff = true;
+    beep(150, 160);
+    terminalEl.classList.add("poweroff");
+    setTimeout(() => {
+      terminalEl.classList.remove("poweroff");
+      poweringOff = false;
+      print(t().closeA, "warn");
+      print(t().closeB, "accent");
+      scrollDown();
+      cmdInput.focus();
+    }, 650);
+  });
+
+  
+
+  const quickbar = $("#quickbar") as HTMLElement;
+  function runQuick(cmd: string) {
+    hideHint();
+    if (cmd === "__tour") { startTour(); return; }
+    execute(cmd);
+    cmdInput.focus();
+  }
+  function buildChips() {
+    quickbar.innerHTML = "";
+    t().chips.forEach((q) => {
+      const b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = q.label;
+      b.addEventListener("click", () => { beep(700, 16); runQuick(q.cmd); });
+      quickbar.appendChild(b);
+    });
+  }
+  buildChips();
+
+  const TOUR = ["whoami", "about", "skills", "experience", "projects", "resume", "social"];
+  let tourActive = false;
+  function tourEscape(e: KeyboardEvent) { if (e.key === "Escape") tourActive = false; }
+
+  async function typeCmd(cmd: string) {
+    for (let i = 0; i <= cmd.length; i++) {
+      if (!tourActive) return;
+      setValue(cmd.slice(0, i));
+      if (i < cmd.length) beep(600 + Math.random() * 80, 9);
+      await sleep(50);
+    }
+    await sleep(220);
+  }
+
+  async function startTour() {
+    if (tourActive) return;
+    tourActive = true;
+    hideHint();
+    if (document.body.classList.contains("gui-active")) setGui(false);
+    window.addEventListener("keydown", tourEscape);
+    output.innerHTML = "";
+    print(t().tourStart, "accent");
+    print("");
+    const stopOnClick = () => { tourActive = false; };
+    const clickTimer = setTimeout(() => window.addEventListener("click", stopOnClick), 600);
+    for (const cmd of TOUR) {
+      if (!tourActive) break;
+      await typeCmd(cmd);
+      if (!tourActive) break;
+      setValue("");
+      await execute(cmd);
+      for (let i = 0; i < 18 && tourActive; i++) await sleep(100);
+    }
+    clearTimeout(clickTimer);
+    window.removeEventListener("keydown", tourEscape);
+    window.removeEventListener("click", stopOnClick);
+    setValue("");
+    print("");
+    print(tourActive ? t().tourEnd : t().tourStop, tourActive ? "accent" : "dim");
+    tourActive = false;
+    cmdInput.focus();
+  }
+
+  const guiBtn = $("#gui-btn") as HTMLButtonElement;
+  function setGui(on: boolean) {
+    document.body.classList.toggle("gui-active", on);
+    document.documentElement.classList.toggle("gui-active", on);
+    guiBtn.textContent = on ? "⌨ terminal" : "🖥 visual";
+    guiBtn.title = on ? "Volver a la terminal" : "Cambiar a versión visual";
+    if (on) { window.scrollTo(0, 0); }
+    else { cmdInput.focus(); }
+  }
+  guiBtn.addEventListener("click", () => {
+    beep(720, 24);
+    setGui(!document.body.classList.contains("gui-active"));
+  });
+  const guiEl = $("#gui") as HTMLElement;
+  guiEl.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest("[data-gui-back]")) { beep(720, 24); setGui(false); }
+  });
+
+  
+  
+  const langBtn = $("#lang-btn") as HTMLButtonElement;
+  const guiInner = guiEl.querySelector(".gui-inner") as HTMLElement;
+  const guiOriginalES = guiInner.innerHTML; // versión ES renderizada por Astro (SEO)
+  langBtn.textContent = "🌐 " + lang.toUpperCase();
+
+  function buildGuiHTML(pr: typeof PROFILE): string {
+    const paras: string[] = []; let cur: string[] = [];
+    for (const l of pr.about) { if (l === "") { if (cur.length) { paras.push(cur.join(" ")); cur = []; } } else cur.push(l); }
+    if (cur.length) paras.push(cur.join(" "));
+    const e = (s: string) => esc(s);
+    const isEN = lang === "en";
+    const H = {
+      now: isEN ? "Right now" : "Ahora mismo",
+      about: isEN ? "About me" : "Sobre mí",
+      skills: isEN ? "Skills" : "Habilidades",
+      exp: isEN ? "Experience" : "Experiencia",
+      proj: isEN ? "Projects" : "Proyectos",
+      edu: isEN ? "Education" : "Educación",
+      gallery: isEN ? "Work in pictures" : "Trabajo en imágenes",
+      ghLangs: isEN ? "most used languages" : "lenguajes más usados",
+      ghRepos: isEN ? "public repositories" : "repositorios públicos",
+      ghStars: isEN ? "total stars" : "estrellas totales",
+      ghFollowers: isEN ? "followers" : "seguidores",
+      ghSince: isEN ? "coding since" : "programando desde",
+      certs: isEN ? "Certifications" : "Certificaciones",
+      recs: isEN ? "What people say about me" : "Lo que dicen de mí",
+      talk: isEN ? "Download CV" : "Descargar CV",
+      back: isEN ? "⌨ Terminal version" : "⌨ Versión terminal",
+      hablemos: isEN ? "Let's talk" : "Hablemos",
+      caption: isEN ? "SLUD XXII — talk \"The future of Linux\", as former GLUD Director 🐧"
+                    : "SLUD XXII — charla \"El futuro de Linux\", como ex-Director del GLUD 🐧",
+      seeGh: isEN ? "view on GitHub ↗" : "ver en GitHub ↗",
+    };
+    const social = (s: typeof pr.socials[number]) =>
+      `<a href="${s.url}" target="_blank" rel="noopener" title="${e(s.name)}"><span>${s.icon}</span> ${e(s.name)}</a>`;
+    return `
+      <header class="gui-hero">
+        <img class="gui-avatar lb" data-gallery="gui" data-caption="${e(pr.name)}" src="${pr.avatar}" alt="${e(pr.name)}" loading="lazy" onerror="this.style.display='none'" />
+        <div class="gui-hero-text">
+          <h1 class="gui-name">${e(pr.name)}</h1>
+          <p class="gui-role">${e(pr.role)}</p>
+          <p class="gui-title">${e(pr.title)}</p>
+          <p class="gui-loc">📍 ${e(pr.location)}</p>
+          <blockquote class="gui-quote">“${e(pr.tagline)}”</blockquote>
+          <div class="gui-actions">
+            <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "en" : "es"}.pdf" target="_blank" rel="noopener">📄 ${H.talk}</a>
+            <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "es" : "en"}.pdf" target="_blank" rel="noopener">📄 CV (${isEN ? "ES" : "EN"})</a>
+            <button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button>
+          </div>
+          <div class="gui-socials">${pr.socials.map(social).join("")}</div>
+        </div>
+      </header>
+      <section class="gui-section"><h2>${H.about}</h2>${paras.map((p) => `<p>${e(p)}</p>`).join("")}
+        <figure class="gui-figure"><img class="lb" data-gallery="gui" data-caption="${e(H.caption)}" src="/assets/photos/glud-talk.jpg" alt="SLUD XXII" loading="lazy" />
+        <figcaption>${e(H.caption)}</figcaption></figure></section>
+      <section class="gui-section"><h2>${H.now}</h2><ul class="gui-now">${pr.now.map((n) => `<li>${e(n)}</li>`).join("")}</ul></section>
+      <section class="gui-section"><h2>${H.skills}</h2><div class="gui-skills">${
+        Object.entries(pr.skills).map(([c, items]) => `<div class="gui-skillset"><h3>${e(c)}</h3><div>${items.map((s) => `<span class="gui-badge">${e(s)}</span>`).join("")}</div></div>`).join("")
+      }</div></section>
+      <section class="gui-section"><h2>${H.exp}</h2><div class="gui-timeline">${
+        pr.experience.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.role)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.company)}</div><p>${e(x.lines.join(" "))}</p></div>`).join("")
+      }</div></section>
+      <section class="gui-section"><h2>${H.proj}</h2><div class="gui-cards">${
+        pr.projects.map((p) => `<a class="gui-card" href="${p.url}" target="_blank" rel="noopener"><h3>${e(p.name)}</h3><span class="gui-card-tech">${e(p.tech)}</span><p>${e(p.desc)}</p><span class="gui-card-link">${H.seeGh}</span></a>`).join("")
+      }</div></section>
+      <section class="gui-section"><h2>${H.gallery}</h2><div class="gui-gallery">${
+        pr.gallery.map((g) => `<figure><img class="lb" data-gallery="work" data-caption="${e(g.caption)}" src="${g.src}" alt="${e(g.caption)}" loading="lazy" /><figcaption>${e(g.caption)}</figcaption></figure>`).join("")
+      }</div></section>
+      ${(() => {
+        const g = buildStats();
+        if (!g) return "";
+        const mx = Math.max(1, ...g.topLanguages.map((l) => l.count));
+        const langs = g.topLanguages.map((l) => `<div class="gh-lang"><span class="gh-lang-name">${e(l.name)}</span><span class="gh-bar"><span style="width:${Math.round((l.count / mx) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`).join("");
+        return `<section class="gui-section"><h2>GitHub</h2><div class="gh-stats">
+          <div class="gh-grid">
+            <div class="gh-stat"><span class="gh-num">${g.publicRepos}</span><span class="gh-lbl">${H.ghRepos}</span></div>
+            <div class="gh-stat"><span class="gh-num">★ ${g.totalStars}</span><span class="gh-lbl">${H.ghStars}</span></div>
+            <div class="gh-stat"><span class="gh-num">${g.followers}</span><span class="gh-lbl">${H.ghFollowers}</span></div>
+            <div class="gh-stat"><span class="gh-num">${g.createdYear}</span><span class="gh-lbl">${H.ghSince}</span></div>
+          </div>
+          <div class="gh-langs"><div class="gh-sub">${H.ghLangs}</div>${langs}</div>
+          <p><a href="https://github.com/${e(g.login)}" target="_blank" rel="noopener">github.com/${e(g.login)} ↗</a></p>
+        </div></section>`;
+      })()}
+      <section class="gui-section"><h2>${H.edu}</h2><div class="gui-timeline">${
+        pr.education.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.degree)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.school)}</div></div>`).join("")
+      }</div></section>
+      <section class="gui-section"><h2>${H.certs}</h2><ul class="gui-certs">${pr.certs.map((c) => `<li>✓ ${e(c)}</li>`).join("")}</ul></section>
+      <section class="gui-section"><h2>${H.recs}</h2><div class="gui-quotes">${
+        pr.testimonials.map((tt) => `<blockquote class="gui-testimonial"><p>“${e(tt.quote)}”</p><footer><strong>${e(tt.name)}</strong><span>${e(tt.role)}</span></footer></blockquote>`).join("")
+      }</div></section>
+      <section class="gui-section gui-contact"><h2>${H.hablemos}</h2><p><a href="mailto:${e(pr.contact.email)}">✉️ ${e(pr.contact.email)}</a></p>
+        <div class="gui-socials">${pr.socials.map((s) => `<a href="${s.url}" target="_blank" rel="noopener"><span>${s.icon}</span> ${e(s.handle)}</a>`).join("")}</div></section>
+      <footer class="gui-footer"><span>“${e(pr.tagline)}”</span><button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button><span class="dim">juferoga.pro</span></footer>`;
+  }
+
+  function renderGui() {
+    guiInner.innerHTML = lang === "es" ? guiOriginalES : buildGuiHTML(P);
+  }
+
+  function setLang(l: Lang) {
+    lang = l;
+    P = lang === "en" ? PROFILE_EN : PROFILE;
+    try { localStorage.setItem("lang", lang); } catch {}
+    langBtn.textContent = "🌐 " + lang.toUpperCase();
+    document.documentElement.lang = lang;
+    buildChips();
+    renderGui();
+  }
+  langBtn.addEventListener("click", () => {
+    beep(700, 24);
+    setLang(lang === "es" ? "en" : "es");
+    print(t().langMsg, "accent");
+    cmdInput.focus();
+  });
+  if (lang === "en") { document.documentElement.lang = "en"; renderGui(); }
+
+  function printWelcomeChooser() {
+    printHTML(
+      `<div class="welcome-chooser">
+         <span class="wc-q">${t().welcomeQ}</span>
+         <button class="inline-btn" data-action="tour">${t().btnTour}</button>
+         <button class="inline-btn" data-action="gui">${t().btnGui}</button>
+         <span class="dim">${t().welcomeOr} <b>help</b> 😎</span>
+       </div>`
+    );
+  }
+  output.addEventListener("click", (e) => {
+    const cmdBtn = (e.target as HTMLElement).closest(".help-cmd") as HTMLElement | null;
+    if (cmdBtn && cmdBtn.dataset.cmd) {
+      beep(700, 16);
+      runQuick(cmdBtn.dataset.cmd);
+      return;
+    }
+    const el = (e.target as HTMLElement).closest("[data-action]") as HTMLElement | null;
+    if (!el) return;
+    beep(700, 16);
+    if (el.dataset.action === "tour") startTour();
+    else if (el.dataset.action === "gui") setGui(true);
+  });
+
+  
+  
+  let hintHidden = false;
+  function hideHint() {
+    if (!hintHidden) {
+      hint.classList.add("hidden");
+      hintHidden = true;
+    }
+  }
+
+  
+  
+  let matrixRAF = 0;
+  function startMatrix() {
+    const ctx = canvas.getContext("2d")!;
+    canvas.classList.add("active");
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    const fontSize = 16;
+    const cols = Math.floor(canvas.width / fontSize);
+    const drops = new Array(cols).fill(1);
+    const chars = "ｱｲｳｴｵｶｷｸ01アカサタナ<>{}[]#$%&/=jufERoga";
+    const color = getComputedStyle(document.body).getPropertyValue("--fg") || "#33ff66";
+
+    const draw = () => {
+      ctx.fillStyle = "rgba(0,0,0,0.06)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = color.trim() || "#33ff66";
+      ctx.font = fontSize + "px monospace";
+      for (let i = 0; i < drops.length; i++) {
+        const ch = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      }
+      matrixRAF = requestAnimationFrame(draw);
+    };
+    draw();
+
+    const stop = () => {
+      cancelAnimationFrame(matrixRAF);
+      canvas.classList.remove("active");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("click", onClick);
+      print("← saliste de la Matrix. (presionaste una tecla)", "dim");
+      cmdInput.focus();
+    };
+    const onKey = () => stop();
+    const onClick = () => stop();
+    setTimeout(() => {
+      window.addEventListener("keydown", onKey);
+      window.addEventListener("click", onClick);
+    }, 300);
+    window.addEventListener("resize", resize);
+  }
+
+  
+  
+  let pongActive = false;
+  function startPong() {
+    if (pongActive) return;
+    pongActive = true;
+    cmdInput.blur(); // que el input no capture las teclas del juego
+
+    const cvs = document.createElement("canvas");
+    cvs.id = "game-canvas";
+    document.body.appendChild(cvs);
+    const ctx = cvs.getContext("2d")!;
+    const css = getComputedStyle(document.body);
+    const FG = (css.getPropertyValue("--fg") || "#33ff66").trim();
+    const ACC = (css.getPropertyValue("--accent") || "#00ffaa").trim();
+    const BR = (css.getPropertyValue("--fg-bright") || "#aaffbb").trim();
+    const WARN = (css.getPropertyValue("--warn") || "#ffcc33").trim();
+
+    let W = 0, H = 0;
+    const resize = () => { W = cvs.width = window.innerWidth; H = cvs.height = window.innerHeight; };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const PADW = 12, PADH = 90, MARGIN = 40;
+    const player = { y: H / 2 - PADH / 2, score: 0 };
+    const cpu = { y: H / 2 - PADH / 2, score: 0 };
+    const WIN = 5;
+
+    const wall = { w: 16, h: 120, y: H / 2 - 60, vy: 3 };
+
+    const trail: { x: number; y: number }[] = [];
+    const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 9 };
+    function resetBall(dir: number) {
+      ball.x = W / 2; ball.y = H / 2;
+      const ang = (Math.random() * 0.6 - 0.3);
+      const sp = 6;
+      ball.vx = dir * sp * Math.cos(ang);
+      ball.vy = sp * Math.sin(ang);
+      trail.length = 0;
+    }
+    resetBall(Math.random() < 0.5 ? -1 : 1);
+
+    let upPressed = false, downPressed = false, over = false, winner = "";
+
+    const onMove = (e: MouseEvent) => { player.y = e.clientY - PADH / 2; };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key.toLowerCase() === "q") { stop(); return; }
+      if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") { upPressed = true; e.preventDefault(); }
+      if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") { downPressed = true; e.preventDefault(); }
+      if (over && (e.key === "Enter" || e.key === " ")) restart();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") upPressed = false;
+      if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") downPressed = false;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+
+    function restart() {
+      player.score = 0; cpu.score = 0; over = false; winner = "";
+      resetBall(Math.random() < 0.5 ? -1 : 1);
+    }
+
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+    let raf = 0;
+    function loop() {
+      if (!over) {
+        if (upPressed) player.y -= 8;
+        if (downPressed) player.y += 8;
+        player.y = clamp(player.y, 0, H - PADH);
+
+        const target = ball.y - PADH / 2;
+        cpu.y += clamp(target - cpu.y, -6, 6);
+        cpu.y = clamp(cpu.y, 0, H - PADH);
+
+        wall.y += wall.vy;
+        if (wall.y <= 0 || wall.y + wall.h >= H) wall.vy *= -1;
+
+        ball.x += ball.vx; ball.y += ball.vy;
+        trail.push({ x: ball.x, y: ball.y });
+        if (trail.length > 14) trail.shift();
+
+        const VMAX = 13;
+        ball.vy = clamp(ball.vy, -VMAX, VMAX);
+        ball.vx = clamp(ball.vx, -VMAX, VMAX);
+
+        if (ball.y - ball.r <= 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); beep(420, 12); }
+        else if (ball.y + ball.r >= H) { ball.y = H - ball.r; ball.vy = -Math.abs(ball.vy); beep(420, 12); }
+
+        if (ball.x - ball.r <= MARGIN + PADW && ball.x > MARGIN &&
+            ball.y >= player.y && ball.y <= player.y + PADH && ball.vx < 0) {
+          ball.vx = Math.abs(ball.vx) * 1.06;
+          ball.vy += (ball.y - (player.y + PADH / 2)) * 0.05;
+          ball.x = MARGIN + PADW + ball.r; beep(660, 14);
+        }
+        if (ball.x + ball.r >= W - MARGIN - PADW && ball.x < W - MARGIN &&
+            ball.y >= cpu.y && ball.y <= cpu.y + PADH && ball.vx > 0) {
+          ball.vx = -Math.abs(ball.vx) * 1.06;
+          ball.vy += (ball.y - (cpu.y + PADH / 2)) * 0.05;
+          ball.x = W - MARGIN - PADW - ball.r; beep(600, 14);
+        }
+        const wx = W / 2 - wall.w / 2;
+        if (ball.x + ball.r >= wx && ball.x - ball.r <= wx + wall.w &&
+            ball.y + ball.r >= wall.y && ball.y - ball.r <= wall.y + wall.h) {
+          if (ball.vx > 0) { ball.vx = -Math.abs(ball.vx); ball.x = wx - ball.r; }
+          else { ball.vx = Math.abs(ball.vx); ball.x = wx + wall.w + ball.r; }
+          beep(300, 20);
+        }
+
+        if (ball.x < -20) { cpu.score++; check(1); }
+        else if (ball.x > W + 20) { player.score++; check(-1); }
+      }
+
+      ctx.fillStyle = "rgba(0,0,0,0.78)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.setLineDash([8, 14]); ctx.beginPath();
+      ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+      for (let i = 0; i < trail.length; i++) {
+        ctx.globalAlpha = (i / trail.length) * 0.5;
+        ctx.fillStyle = ACC;
+        ctx.fillRect(trail[i].x - 4, trail[i].y - 4, 8, 8);
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = BR;
+      ctx.fillRect(MARGIN, player.y, PADW, PADH);
+      ctx.fillRect(W - MARGIN - PADW, cpu.y, PADW, PADH);
+      ctx.fillStyle = WARN;
+      ctx.fillRect(W / 2 - wall.w / 2, wall.y, wall.w, wall.h);
+      ctx.fillStyle = FG;
+      ctx.shadowColor = ACC; ctx.shadowBlur = 16;
+      ctx.fillRect(ball.x - ball.r, ball.y - ball.r, ball.r * 2, ball.r * 2);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = BR;
+      ctx.font = "bold 42px JetBrains Mono, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(String(player.score), W / 2 - 80, 60);
+      ctx.fillText(String(cpu.score), W / 2 + 80, 60);
+      ctx.font = "14px JetBrains Mono, monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillText("TÚ", W / 2 - 80, 82);
+      ctx.fillText("CPU", W / 2 + 80, 82);
+      ctx.fillText("W/S o ↑/↓ · ratón · ESC/Q para salir · ¡cuidado con el muro amarillo!", W / 2, H - 24);
+
+      if (over) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, H / 2 - 70, W, 140);
+        ctx.fillStyle = winner === "player" ? ACC : WARN;
+        ctx.font = "bold 40px JetBrains Mono, monospace";
+        ctx.fillText(winner === "player" ? "🏆 ¡GANASTE!" : "💀 GANÓ LA CPU", W / 2, H / 2);
+        ctx.fillStyle = BR; ctx.font = "16px JetBrains Mono, monospace";
+        ctx.fillText("Enter para jugar de nuevo · ESC para salir", W / 2, H / 2 + 34);
+      }
+
+      raf = requestAnimationFrame(loop);
+    }
+
+    function check(dir: number) {
+      beep(dir > 0 ? 220 : 880, 60);
+      if (player.score >= WIN) { over = true; winner = "player"; }
+      else if (cpu.score >= WIN) { over = true; winner = "cpu"; }
+      else resetBall(dir);
+    }
+
+    function stop() {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("resize", resize);
+      cvs.remove();
+      pongActive = false;
+      const res = player.score > cpu.score
+        ? `🏆 saliste ganando ${player.score}-${cpu.score}. ¡crack!`
+        : `partida cerrada (${player.score}-${cpu.score}). ¡revancha cuando quieras!`;
+      print("← saliste de PONG. " + res, "dim");
+      cmdInput.focus();
+    }
+
+    loop();
+  }
+
+  
+  
+  const KONAMI = [
+    "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a",
+  ];
+  let konamiIdx = 0;
+  window.addEventListener("keydown", (e) => {
+    if (e.key === KONAMI[konamiIdx] || e.key.toLowerCase() === KONAMI[konamiIdx]) {
+      konamiIdx++;
+      if (konamiIdx === KONAMI.length) {
+        konamiIdx = 0;
+        print("🎮 KONAMI CODE ACTIVADO — modo dios desbloqueado 🚀", "warn");
+        print("Gracias por explorar. Eres de los curiosos, como yo. 🤝", "accent");
+        document.body.style.animation = "none";
+        startMatrix();
+      }
+    } else {
+      konamiIdx = 0;
+    }
+  });
+
+  
+  
+  const bgCanvas = $("#bg-canvas") as HTMLCanvasElement;
+  const bx = bgCanvas.getContext("2d")!;
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  let bw = 0, bh = 0;
+  const bgResize = () => { bw = bgCanvas.width = window.innerWidth; bh = bgCanvas.height = window.innerHeight; };
+  bgResize();
+  window.addEventListener("resize", bgResize);
+
+  type Wire = { pts: { x: number; y: number }[]; age: number; grow: number; hold: number; fade: number };
+  const wires: Wire[] = [];
+  const themeColor = () =>
+    (getComputedStyle(document.body).getPropertyValue("--accent") || "#00ffaa").trim();
+
+  function newWire(): Wire {
+    const edge = Math.floor(Math.random() * 4);
+    let x: number, y: number, dir: number;
+    if (edge === 0) { x = Math.random() * bw; y = 0; dir = 2; }        // arriba → baja
+    else if (edge === 1) { x = Math.random() * bw; y = bh; dir = 3; }  // abajo → sube
+    else if (edge === 2) { x = 0; y = Math.random() * bh; dir = 0; }   // izq → derecha
+    else { x = bw; y = Math.random() * bh; dir = 1; }                  // der → izquierda
+    const pts = [{ x, y }];
+    const segs = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < segs; i++) {
+      const len = 40 + Math.random() * 160;
+      if (dir === 0) x += len; else if (dir === 1) x -= len;
+      else if (dir === 2) y += len; else y -= len;
+      pts.push({ x, y });
+      dir = dir < 2 ? 2 + (Math.random() < 0.5 ? 0 : 1) : (Math.random() < 0.5 ? 0 : 1); // giro 90°
+    }
+    return { pts, age: 0, grow: 60 + Math.random() * 60, hold: 80 + Math.random() * 140, fade: 60 + Math.random() * 60 };
+  }
+
+  function drawWire(w: Wire, color: string, alpha: number) {
+    const pts = w.pts;
+    let L = 0;
+    for (let i = 1; i < pts.length; i++) L += Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+    const f = Math.min(1, w.age / w.grow);
+    const target = L * f;
+    bx.strokeStyle = color; bx.globalAlpha = alpha; bx.lineWidth = 1.5;
+    bx.shadowColor = color; bx.shadowBlur = 6; // glow para que se aprecien
+    bx.beginPath(); bx.moveTo(pts[0].x, pts[0].y);
+    let acc = 0, hx = pts[0].x, hy = pts[0].y;
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+      if (acc + seg <= target) { bx.lineTo(pts[i].x, pts[i].y); acc += seg; hx = pts[i].x; hy = pts[i].y; }
+      else { const r = seg ? (target - acc) / seg : 0; hx = pts[i - 1].x + (pts[i].x - pts[i - 1].x) * r; hy = pts[i - 1].y + (pts[i].y - pts[i - 1].y) * r; bx.lineTo(hx, hy); break; }
+    }
+    bx.stroke();
+    bx.globalAlpha = alpha * 1.6;
+    for (let i = 0; i < pts.length; i++) {
+      const d = (pts.slice(0, i + 1).reduce((s, p, j) => j ? s + Math.abs(p.x - pts[j - 1].x) + Math.abs(p.y - pts[j - 1].y) : 0, 0));
+      if (d <= target) bx.fillRect(pts[i].x - 1.5, pts[i].y - 1.5, 3, 3);
+    }
+    bx.fillRect(hx - 1.5, hy - 1.5, 3, 3);
+    bx.globalAlpha = 1; bx.shadowBlur = 0;
+  }
+
+  let bgRAF = 0;
+  function bgLoop() {
+    bx.clearRect(0, 0, bw, bh);
+    const color = themeColor();
+    for (let i = wires.length - 1; i >= 0; i--) {
+      const w = wires[i]; w.age++;
+      const total = w.grow + w.hold + w.fade;
+      const MAXA = 0.26;
+      let a = MAXA;
+      if (w.age < w.grow) a = MAXA * (w.age / w.grow); // aparición suave
+      else if (w.age > w.grow + w.hold) a = MAXA * (1 - (w.age - w.grow - w.hold) / w.fade);
+      if (w.age >= total) { wires.splice(i, 1); continue; }
+      drawWire(w, color, Math.max(0, a));
+    }
+    if (wires.length < 26 && Math.random() < 0.14) wires.push(newWire());
+    if (!document.body.classList.contains("gui-active")) {
+      const tr = terminalEl.getBoundingClientRect();
+      if (tr.width && tr.height) bx.clearRect(tr.left, tr.top, tr.width, tr.height);
+    }
+    bgRAF = requestAnimationFrame(bgLoop);
+  }
+  if (!reduceMotion) bgLoop();
+
+  
+  
+  const lb = $("#lightbox") as HTMLElement;
+  const lbImg = $("#lb-img") as HTMLImageElement;
+  const lbCap = $("#lb-caption") as HTMLElement;
+  const lbCount = $("#lb-count") as HTMLElement;
+  let lbItems: { src: string; caption: string }[] = [];
+  let lbIdx = 0;
+
+  function lbShow() {
+    const it = lbItems[lbIdx];
+    if (!it) return;
+    lbImg.src = it.src; lbImg.alt = it.caption;
+    lbCap.textContent = it.caption;
+    const multi = lbItems.length > 1;
+    lbCount.textContent = multi ? `${lbIdx + 1} / ${lbItems.length}` : "";
+    lb.classList.toggle("multi", multi);
+  }
+  function openLightbox(items: { src: string; caption: string }[], idx = 0) {
+    if (!items.length) return;
+    lbItems = items; lbIdx = idx;
+    lbShow();
+    lb.classList.add("open");
+    lb.setAttribute("aria-hidden", "false");
+    beep(620, 22);
+  }
+  function lbClose() { lb.classList.remove("open"); lb.setAttribute("aria-hidden", "true"); cmdInput.focus(); }
+  function lbNav(d: number) { if (lbItems.length < 2) return; lbIdx = (lbIdx + d + lbItems.length) % lbItems.length; lbShow(); beep(660, 14); }
+
+  lb.addEventListener("click", (e) => {
+    const tgt = e.target as HTMLElement;
+    if (tgt.closest("[data-lb-close]")) lbClose();
+    else if (tgt.closest("[data-lb-prev]")) lbNav(-1);
+    else if (tgt.closest("[data-lb-next]")) lbNav(1);
+  });
+  window.addEventListener("keydown", (e) => {
+    if (!lb.classList.contains("open")) return;
+    if (e.key === "Escape") lbClose();
+    else if (e.key === "ArrowLeft") lbNav(-1);
+    else if (e.key === "ArrowRight") lbNav(1);
+  });
+  document.addEventListener("click", (e) => {
+    const img = (e.target as HTMLElement).closest("img.lb") as HTMLImageElement | null;
+    if (!img) return;
+    e.stopPropagation();
+    const gal = img.dataset.gallery;
+    const group = gal
+      ? Array.from(document.querySelectorAll<HTMLImageElement>(`img.lb[data-gallery="${gal}"]`))
+      : [img];
+    const items = group.map((g) => ({
+      src: g.currentSrc || g.getAttribute("src") || "",
+      caption: g.dataset.caption || g.alt || "",
+    }));
+    openLightbox(items, Math.max(0, group.indexOf(img)));
+  }, true);
+
+  
+  
+  async function boot() {
+    const skipper = () => { skipBoot = true; };
+    window.addEventListener("keydown", skipper);
+    window.addEventListener("click", skipper);
+
+    const bootLines = [
+      "Booting juferoga.pro kernel 6.0.3-arch ...",
+      "[  OK  ] Reached target Open Source.",
+      "[  OK  ] Started GNU/Linux Passion Service.",
+      "[  OK  ] Mounted /home/juferoga/portfolio.",
+      "[  OK  ] Loaded Cloud & AI modules.",
+      "[  OK  ] Initialized coffee daemon ☕",
+      "Login: juferoga (auto)",
+      "",
+    ];
+    for (const l of bootLines) {
+      print(esc(l), l.includes("OK") ? "dim" : "accent");
+      await bootSleep(140);
+    }
+    await bootSleep(200);
+
+    printHTML(
+      `<div class="hero">
+         <pre class="line ascii hero-banner">${esc(BANNER)}</pre>
+         <div class="hero-photo"><img src="${P.avatar}" alt="Juan Felipe"
+           onerror="this.parentElement.innerHTML='[ foto ]'"></div>
+       </div>`
+    );
+    await bootSleep(150);
+    await typeLine(`${P.name} — ${P.title}`, "bright", 10);
+    printHTML(`<div class="quote">"${P.tagline}"</div>`);
+    print("");
+    await typeLine(t().welcome, "accent", 8);
+    print("");
+    printWelcomeChooser();
+    print("");
+
+    bootingActive = false;
+    window.removeEventListener("keydown", skipper);
+    window.removeEventListener("click", skipper);
+
+    inputLine.style.display = "flex";
+    syncFake(); // pinta el cursor con su contenido inicial (alto/ancho correctos)
+    cmdInput.focus();
+    scrollDown();
+  }
+
+  boot();
+</script>

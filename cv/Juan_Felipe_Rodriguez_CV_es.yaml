@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/rendercv/rendercv/refs/tags/v2.8/schema.json
+# ---------------------------------------------------------------------------
+#  CV de Juan Felipe Rodríguez Galindo — Español
+#  Render:  rendercv render Juan_Felipe_Rodriguez_CV_es.yaml
+#  Cambiar estilo:  rendercv render ... --design.theme sb2nov
+# ---------------------------------------------------------------------------
+cv:
+  name: Juan Felipe Rodríguez Galindo
+  headline: Especialista en Desarrollo de Software · Cloud Developer
+  location: Bogotá, Colombia
+  email: juferoga@gmail.com
+#  photo: profile.jpg
+  phone:
+  website: https://juferoga.pro
+  social_networks:
+    - network: LinkedIn
+      username: juferoga
+    - network: GitHub
+      username: Juferoga
+  sections:
+    Perfil:
+      - Ingeniero de Sistemas de la Universidad Distrital Francisco José de Caldas,
+        profundamente apasionado por la innovación tecnológica y el **software libre**.
+        Experiencia sólida en sistemas GNU/Linux, arquitectura de microservicios,
+        infraestructura como código en AWS y desarrollo frontend moderno. Ex-Director
+        del Grupo GNU/Linux de la Universidad Distrital. *"Cambiando el mundo una línea
+        a la vez."*
+    Experiencia:
+      - company: Banco de Bogotá
+        position: Analista de Sistemas II · Cloud Developer
+        start_date: 2026-02
+        end_date: present
+        location: Bogotá, Colombia
+        highlights:
+          - Lidero el desarrollo de soluciones Cloud de alto impacto, integrando
+            tecnologías de vanguardia para la automatización de procesos financieros.
+          - Reconocido por mi resiliencia y compromiso técnico, combinando arquitectura
+            de sistemas con innovación constante.
+      - company: Banco de Bogotá
+        position: Analista de Sistemas III · Cloud Developer
+        start_date: 2024-10
+        end_date: 2026-03
+        location: Bogotá, Colombia
+        highlights:
+          - Evolución de plataformas digitales críticas con IaC en **AWS**, arquitectura
+            de microservicios y frontend moderno.
+          - Diseño de soluciones resilientes y escalables, priorizando seguridad y
+            calidad de software en el sector financiero.
+      - company: Instituto Geográfico Agustín Codazzi (IGAC)
+        position: Desarrollador Full Stack
+        start_date: 2024-03
+        end_date: 2024-12
+        location: Bogotá, Colombia
+        highlights:
+          - Soporte y desarrollo de aplicaciones de recolección de datos (CICA,
+            Consultores Catastrales) con **Angular 16-18**, **Java/Spring Boot** y Oracle DB.
+          - Despliegue con GitLab CI/CD y Docker.
+      - company: Agencia Catastral de Cundinamarca
+        position: Desarrollador Front-End
+        start_date: 2022-09
+        end_date: 2023-12
+        location: Bogotá, Colombia
+        highlights:
+          - Portales internos y externos de trámites catastrales (full stack) con
+            **Django**, **AngularJS** y GitLab CI/CD.
+          - Dockerización completa, Jenkins y Traefik. Cumplimiento de normativas MINTIC
+            para portales gubernamentales.
+      - company: Universidad Distrital · Grupo de Investigación GICOGE
+        position: Monitor de Investigación
+        start_date: 2023-09
+        end_date: 2024-07
+        location: Bogotá, Colombia
+        highlights:
+          - Infraestructura del grupo de investigación con Docker y CMS WordPress.
+          - Actualización del grupo en MINCIENCIAS.
+      - company: Dominio Estudio de Diseño
+        position: Desarrollador Web Front-End e Instructor
+        start_date: 2021-11
+        end_date: 2023-01
+        location: Bogotá, Colombia
+        highlights:
+          - Desarrollo front-end (web y mobile) y captura de requerimientos.
+          - Instructor en la "Academia Héroes Tech" (Python y JavaScript) para la
+            Corporación Mariano Matamoros D'Acosta.
+      - company: Grupo GNU/Linux — Universidad Distrital
+        position: Director General
+        start_date: 2021-01
+        end_date: 2022-08
+        location: Bogotá, Colombia
+        highlights:
+          - Dirección del Grupo GNU/Linux y promoción del software libre.
+          - Enseñanza de fundamentos de sistemas operativos GNU/Linux a la comunidad.
+    Educación:
+      - institution: Universidad Distrital Francisco José de Caldas
+        area: Ciencias de la Información y las Comunicaciones
+        degree: MSc
+        start_date: 2026-01
+        end_date: 2027-06
+        location: Bogotá, Colombia
+        highlights:
+          - Maestría con énfasis en investigación.
+      - institution: Universidad Distrital Francisco José de Caldas
+        area: Ingeniería de Sistemas
+        degree: BSc
+        start_date: 2018-01
+        end_date: 2025-09
+        location: Bogotá, Colombia
+      - institution: Servicio Nacional de Aprendizaje (SENA)
+        area: Desarrollo de Software
+        degree: Téc
+        start_date: 2016-01
+        end_date: 2017-12
+        location: Bogotá, Colombia
+    Proyectos:
+      - name: '[se-tesis — Criptosistema Esteganográfico de Audio](https://github.com/Juferoga/se-tesis)'
+        date: '2025'
+        summary: Tesis de Ingeniería de Sistemas (Python).
+        highlights:
+          - Oculta y cifra información en audio usando atractores caóticos, con
+            compresión de texto mediante redes neuronales.
+      - name: '[emotion-recognition-ICD](https://github.com/Juferoga/emotion-recognition-ICD)'
+        date: '2024'
+        summary: Reconocimiento de emociones con deep learning (Python).
+      - name: '[ai-context-extractor](https://github.com/Juferoga/ai-context-extractor)'
+        date: '2026'
+        summary: Extractor de contexto de proyectos Angular para modelos de IA (TypeScript).
+      - name: '[grub2-theme-glud](https://github.com/Juferoga/grub2-theme-glud)'
+        date: '2025'
+        summary: Tema personalizado de GRUB2 para el Grupo GNU/Linux de la U. Distrital.
+    Habilidades:
+      - label: Cloud & DevOps
+        details: AWS, IaC, Docker, GitLab CI/CD, Jenkins, Traefik
+      - label: Frontend
+        details: Angular (16-18), AngularJS, RxJS, Angular Material, Vue.js, Bootstrap
+      - label: Backend
+        details: Java / Spring Boot, Django, Python, PHP / Laravel, Node.js
+      - label: Data & IA
+        details: Deep Learning, Anthropic Claude, Prompt Flow
+      - label: Sistemas
+        details: GNU/Linux, Oracle DB, Microservicios, Seguridad de sistemas
+    Certificaciones:
+      - bullet: Engineering Practices for Building Quality Software
+      - bullet: Computer Security and Systems Management (Programa Especializado)
+      - bullet: Claude 101 · Anthropic
+      - bullet: Comunicación efectiva para el líder actual
+      - bullet: Habilidades de negociación y comunicación efectiva
+    Idiomas:
+      - label: Español
+        details: Nativo
+      - label: Inglés
+        details: Professional Working
+design:
+  theme: classic
+locale:
+  language: spanish
+  last_updated: Última actualización en
+  month: mes
+  months: meses
+  year: año
+  years: años
+  present: actual
+  month_abbreviations:
+    - ene
+    - feb
+    - mar
+    - abr
+    - may
+    - jun
+    - jul
+    - ago
+    - sep
+    - oct
+    - nov
+    - dic
+  month_names:
+    - enero
+    - febrero
+    - marzo
+    - abril
+    - mayo
+    - junio
+    - julio
+    - agosto
+    - septiembre
+    - octubre
+    - noviembre
+    - diciembre
+settings:
+  current_date: today
+  pdf_title: Juan Felipe Rodríguez Galindo - CV

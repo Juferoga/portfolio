@@ -1,0 +1,192 @@
+---
+import { PROFILE as P } from "../data/profile";
+import type { GithubStats } from "../data/github";
+
+const { stats } = Astro.props as { stats: GithubStats | null };
+const maxL = stats ? Math.max(1, ...stats.topLanguages.map((l) => l.count)) : 1;
+
+const aboutParas: string[] = [];
+let cur: string[] = [];
+for (const l of P.about) {
+  if (l === "") { if (cur.length) { aboutParas.push(cur.join(" ")); cur = []; } }
+  else cur.push(l);
+}
+if (cur.length) aboutParas.push(cur.join(" "));
+---
+
+<section class="gui" id="gui" aria-label="Versión visual del portafolio">
+  <div class="gui-inner">
+    
+    <header class="gui-hero">
+      <img class="gui-avatar lb" data-gallery="gui" data-caption={P.name} src={P.avatar} alt={P.name} loading="lazy"
+        onerror="this.style.display='none'" />
+      <div class="gui-hero-text">
+        <h1 class="gui-name">{P.name}</h1>
+        <p class="gui-role">{P.role}</p>
+        <p class="gui-title">{P.title}</p>
+        <p class="gui-loc">📍 {P.location}</p>
+        <blockquote class="gui-quote">“{P.tagline}”</blockquote>
+        <div class="gui-actions">
+          <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_es.pdf" target="_blank" rel="noopener">📄 Descargar CV</a>
+          <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_en.pdf" target="_blank" rel="noopener">📄 CV (EN)</a>
+          <button class="gui-btn gui-back" data-gui-back type="button">⌨ Versión terminal</button>
+        </div>
+        <div class="gui-socials">
+          {P.socials.map((s) => (
+            <a href={s.url} target="_blank" rel="noopener" title={s.name}>
+              <span>{s.icon}</span> {s.name}
+            </a>
+          ))}
+        </div>
+      </div>
+    </header>
+
+    <section class="gui-section">
+      <h2>Sobre mí</h2>
+      {aboutParas.map((p) => <p>{p}</p>)}
+      <figure class="gui-figure">
+        <img class="lb" data-gallery="gui" data-caption='SLUD XXII — charla "El futuro de Linux", como ex-Director del GLUD 🐧'
+          src="/assets/photos/glud-talk.jpg" alt="Juan Felipe presentando en el SLUD XXII" loading="lazy" />
+        <figcaption>SLUD XXII — charla “El futuro de Linux”, como ex-Director del GLUD 🐧</figcaption>
+      </figure>
+    </section>
+
+    <section class="gui-section">
+      <h2>Ahora mismo</h2>
+      <ul class="gui-now">
+        {P.now.map((n) => <li>{n}</li>)}
+      </ul>
+    </section>
+
+    <section class="gui-section">
+      <h2>Habilidades</h2>
+      <div class="gui-skills">
+        {Object.entries(P.skills).map(([cat, items]) => (
+          <div class="gui-skillset">
+            <h3>{cat}</h3>
+            <div>{items.map((s) => <span class="gui-badge">{s}</span>)}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="gui-section">
+      <h2>Experiencia</h2>
+      <div class="gui-timeline">
+        {P.experience.map((e) => (
+          <div class="gui-entry">
+            <div class="gui-entry-head">
+              <span class="gui-entry-role">{e.role}</span>
+              <span class="gui-entry-period">{e.period}</span>
+            </div>
+            <div class="gui-entry-company">{e.company}</div>
+            <p>{e.lines.join(" ")}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="gui-section">
+      <h2>Proyectos</h2>
+      <div class="gui-cards">
+        {P.projects.map((pr) => (
+          <a class="gui-card" href={pr.url} target="_blank" rel="noopener">
+            <h3>{pr.name}</h3>
+            <span class="gui-card-tech">{pr.tech}</span>
+            <p>{pr.desc}</p>
+            <span class="gui-card-link">ver en GitHub ↗</span>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="gui-section">
+      <h2>Trabajo en imágenes</h2>
+      <div class="gui-gallery">
+        {P.gallery.map((g) => (
+          <figure>
+            <img class="lb" data-gallery="work" data-caption={g.caption} src={g.src} alt={g.caption} loading="lazy" />
+            <figcaption>{g.caption}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+
+    {stats && (
+      <section class="gui-section">
+        <h2>GitHub</h2>
+        <div class="gh-stats">
+          <div class="gh-grid">
+            <div class="gh-stat"><span class="gh-num">{stats.publicRepos}</span><span class="gh-lbl">repositorios públicos</span></div>
+            <div class="gh-stat"><span class="gh-num">★ {stats.totalStars}</span><span class="gh-lbl">estrellas totales</span></div>
+            <div class="gh-stat"><span class="gh-num">{stats.followers}</span><span class="gh-lbl">seguidores</span></div>
+            <div class="gh-stat"><span class="gh-num">{stats.createdYear}</span><span class="gh-lbl">programando desde</span></div>
+          </div>
+          <div class="gh-langs">
+            <div class="gh-sub">lenguajes más usados</div>
+            {stats.topLanguages.map((l) => (
+              <div class="gh-lang">
+                <span class="gh-lang-name">{l.name}</span>
+                <span class="gh-bar"><span style={`width:${Math.round((l.count / maxL) * 100)}%`}></span></span>
+                <span class="gh-lang-n">{l.count}</span>
+              </div>
+            ))}
+          </div>
+          <p><a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener">github.com/{stats.login} ↗</a></p>
+        </div>
+      </section>
+    )}
+
+    <section class="gui-section">
+      <h2>Educación</h2>
+      <div class="gui-timeline">
+        {P.education.map((e) => (
+          <div class="gui-entry">
+            <div class="gui-entry-head">
+              <span class="gui-entry-role">{e.degree}</span>
+              <span class="gui-entry-period">{e.period}</span>
+            </div>
+            <div class="gui-entry-company">{e.school}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="gui-section">
+      <h2>Certificaciones</h2>
+      <ul class="gui-certs">
+        {P.certs.map((c) => <li>✓ {c}</li>)}
+      </ul>
+    </section>
+
+    <section class="gui-section">
+      <h2>Lo que dicen de mí</h2>
+      <div class="gui-quotes">
+        {P.testimonials.map((t) => (
+          <blockquote class="gui-testimonial">
+            <p>“{t.quote}”</p>
+            <footer><strong>{t.name}</strong><span>{t.role}</span></footer>
+          </blockquote>
+        ))}
+      </div>
+    </section>
+
+    <section class="gui-section gui-contact">
+      <h2>Hablemos</h2>
+      <p>
+        <a href={`mailto:${P.contact.email}`}>✉️ {P.contact.email}</a>
+      </p>
+      <div class="gui-socials">
+        {P.socials.map((s) => (
+          <a href={s.url} target="_blank" rel="noopener"><span>{s.icon}</span> {s.handle}</a>
+        ))}
+      </div>
+    </section>
+
+    <footer class="gui-footer">
+      <span>“{P.tagline}”</span>
+      <button class="gui-btn gui-back" data-gui-back type="button">⌨ Volver a la terminal</button>
+      <span class="dim">juferoga.pro</span>
+    </footer>
+  </div>
+</section>
