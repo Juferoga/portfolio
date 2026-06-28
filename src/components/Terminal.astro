@@ -43,6 +43,7 @@
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
+          enterkeyhint="go"
           aria-label="Comando"
         />
         <span class="fake-input"><span id="fi-before"></span><span class="cursor" id="cursor"> </span><span id="fi-after"></span><span class="ghost" id="ghost"></span></span>
@@ -88,6 +89,13 @@
   const canvas = $("#matrix-canvas") as HTMLCanvasElement;
 
   const scrollDown = () => (screen.scrollTop = screen.scrollHeight);
+
+  const isTouch = window.matchMedia
+    ? window.matchMedia("(hover: none) and (pointer: coarse)").matches
+    : "ontouchstart" in window;
+  function focusInput() {
+    if (!isTouch) cmdInput.focus();
+  }
 
   function print(text = "", cls = "") {
     const div = document.createElement("div");
@@ -1219,7 +1227,7 @@
   document.addEventListener("click", () => {
     if (pongActive) return;
     const sel = window.getSelection();
-    if (!sel || sel.toString() === "") cmdInput.focus();
+    if (!sel || sel.toString() === "") focusInput();
   });
 
   
@@ -1286,7 +1294,7 @@
     terminalEl.classList.remove("minimized");
     terminalEl.classList.toggle("maximized");
     beep(720, 30);
-    cmdInput.focus();
+    focusInput();
   });
 
   dotYellow.addEventListener("click", (e) => {
@@ -1297,7 +1305,7 @@
   titlebarText.addEventListener("click", () => {
     if (terminalEl.classList.contains("minimized")) {
       terminalEl.classList.remove("minimized");
-      cmdInput.focus();
+      focusInput();
     }
   });
 
@@ -1314,7 +1322,7 @@
       print(t().closeA, "warn");
       print(t().closeB, "accent");
       scrollDown();
-      cmdInput.focus();
+      focusInput();
     }, 650);
   });
 
@@ -1325,7 +1333,7 @@
     hideHint();
     if (cmd === "__tour") { startTour(); return; }
     execute(cmd);
-    cmdInput.focus();
+    focusInput();
   }
   function buildChips() {
     quickbar.innerHTML = "";
@@ -1379,7 +1387,7 @@
     print("");
     print(tourActive ? t().tourEnd : t().tourStop, tourActive ? "accent" : "dim");
     tourActive = false;
-    cmdInput.focus();
+    focusInput();
   }
 
   const guiBtn = $("#gui-btn") as HTMLButtonElement;
@@ -1389,7 +1397,7 @@
     guiBtn.textContent = on ? "⌨ terminal" : "🖥 visual";
     guiBtn.title = on ? "Volver a la terminal" : "Cambiar a versión visual";
     if (on) { window.scrollTo(0, 0); }
-    else { cmdInput.focus(); }
+    else { focusInput(); }
   }
   guiBtn.addEventListener("click", () => {
     beep(720, 24);
@@ -1515,7 +1523,7 @@
     beep(700, 24);
     setLang(lang === "es" ? "en" : "es");
     print(t().langMsg, "accent");
-    cmdInput.focus();
+    focusInput();
   });
   if (lang === "en") { document.documentElement.lang = "en"; renderGui(); }
 
@@ -1592,7 +1600,7 @@
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("click", onClick);
       print("← saliste de la Matrix. (presionaste una tecla)", "dim");
-      cmdInput.focus();
+      focusInput();
     };
     const onKey = () => stop();
     const onClick = () => stop();
@@ -1780,7 +1788,7 @@
         ? `🏆 saliste ganando ${player.score}-${cpu.score}. ¡crack!`
         : `partida cerrada (${player.score}-${cpu.score}). ¡revancha cuando quieras!`;
       print("← saliste de PONG. " + res, "dim");
-      cmdInput.focus();
+      focusInput();
     }
 
     loop();
@@ -1916,7 +1924,7 @@
     lb.setAttribute("aria-hidden", "false");
     beep(620, 22);
   }
-  function lbClose() { lb.classList.remove("open"); lb.setAttribute("aria-hidden", "true"); cmdInput.focus(); }
+  function lbClose() { lb.classList.remove("open"); lb.setAttribute("aria-hidden", "true"); focusInput(); }
   function lbNav(d: number) { if (lbItems.length < 2) return; lbIdx = (lbIdx + d + lbItems.length) % lbItems.length; lbShow(); beep(660, 14); }
 
   lb.addEventListener("click", (e) => {
@@ -1991,7 +1999,7 @@
 
     inputLine.style.display = "flex";
     syncFake(); // pinta el cursor con su contenido inicial (alto/ancho correctos)
-    cmdInput.focus();
+    focusInput();
     scrollDown();
   }
 
