@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 cv:
   name: Juan Felipe Rodríguez Galindo
-  headline: Especialista en Desarrollo de Software · Cloud Developer
+  headline: Ingeniero de Software · Backend & Cloud (AWS) · IA aplicada al desarrollo
   location: Bogotá, Colombia
   email: juferoga@gmail.com
 #  photo: profile.jpg
@@ -19,12 +19,14 @@ cv:
       username: Juferoga
   sections:
     Perfil:
-      - Ingeniero de Sistemas de la Universidad Distrital Francisco José de Caldas,
-        profundamente apasionado por la innovación tecnológica y el **software libre**.
-        Experiencia sólida en sistemas GNU/Linux, arquitectura de microservicios,
-        infraestructura como código en AWS y desarrollo frontend moderno. Ex-Director
-        del Grupo GNU/Linux de la Universidad Distrital. *"Cambiando el mundo una línea
-        a la vez."*
+      - Ingeniero de Sistemas que construye productos de principio a fin en el sector
+        financiero, desde la definición del alcance hasta la fiabilidad en producción.
+        Experiencia sólida en **backend escalable** (Java/Spring Boot, Python/Django,
+        Node.js), arquitectura de microservicios, **infraestructura como código en AWS**
+        y frontend moderno. Integro herramientas de **IA (Anthropic Claude, Prompt Flow)**
+        como acelerador real de mi flujo de desarrollo y del equipo. Formación en
+        codificación segura y criptografía aplicada. Ex-Director del Grupo GNU/Linux
+        de la Universidad Distrital. *"Cambiando el mundo una línea a la vez."*
     Experiencia:
       - company: Banco de Bogotá
         position: Analista de Sistemas II · Cloud Developer
@@ -32,10 +34,11 @@ cv:
         end_date: present
         location: Bogotá, Colombia
         highlights:
-          - Lidero el desarrollo de soluciones Cloud de alto impacto, integrando
-            tecnologías de vanguardia para la automatización de procesos financieros.
-          - Reconocido por mi resiliencia y compromiso técnico, combinando arquitectura
-            de sistemas con innovación constante.
+          - Lidero el desarrollo de soluciones Cloud de alto impacto para la
+            automatización de procesos financieros, con responsabilidad integral de
+            las funcionalidades desde el diseño hasta producción.
+          - Incorporo herramientas de IA (Anthropic Claude, Prompt Flow) en el flujo
+            de desarrollo como acelerador del equipo, no como novedad.
       - company: Banco de Bogotá
         position: Analista de Sistemas III · Cloud Developer
         start_date: 2024-10
@@ -44,8 +47,9 @@ cv:
         highlights:
           - Evolución de plataformas digitales críticas con IaC en **AWS**, arquitectura
             de microservicios y frontend moderno.
-          - Diseño de soluciones resilientes y escalables, priorizando seguridad y
-            calidad de software en el sector financiero.
+          - Diseño de soluciones backend resilientes y altamente escalables, priorizando
+            **codificación segura**, calidad de software y fiabilidad en producción
+            en el sector financiero.
       - company: Instituto Geográfico Agustín Codazzi (IGAC)
         position: Desarrollador Full Stack
         start_date: 2024-03
@@ -128,16 +132,18 @@ cv:
         date: '2025'
         summary: Tema personalizado de GRUB2 para el Grupo GNU/Linux de la U. Distrital.
     Habilidades:
+      - label: Backend
+        details: Python / Django, Java / Spring Boot, Node.js, PHP / Laravel,
+          APIs REST, Microservicios
+      - label: IA aplicada
+        details: Anthropic Claude, Prompt Flow, Deep Learning, IA como acelerador
+          del flujo de desarrollo
       - label: Cloud & DevOps
         details: AWS, IaC, Docker, GitLab CI/CD, Jenkins, Traefik
       - label: Frontend
         details: Angular (16-18), AngularJS, RxJS, Angular Material, Vue.js, Bootstrap
-      - label: Backend
-        details: Java / Spring Boot, Django, Python, PHP / Laravel, Node.js
-      - label: Data & IA
-        details: Deep Learning, Anthropic Claude, Prompt Flow
-      - label: Sistemas
-        details: GNU/Linux, Oracle DB, Microservicios, Seguridad de sistemas
+      - label: Sistemas & Seguridad
+        details: GNU/Linux, Oracle DB, Codificación segura, Criptografía aplicada
     Certificaciones:
       - bullet: Engineering Practices for Building Quality Software
       - bullet: Computer Security and Systems Management (Programa Especializado)

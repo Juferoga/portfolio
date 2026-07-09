@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 cv:
   name: Juan Felipe Rodríguez Galindo
-  headline: Software Development Specialist · Cloud Developer
+  headline: Software Engineer · Backend & Cloud (AWS) · AI-powered development
   location: Bogotá, Colombia
   email: juferoga@gmail.com
 #  photo: profile.jpg
@@ -19,11 +19,14 @@ cv:
       username: Juferoga
   sections:
     Summary:
-      - Systems Engineer from Universidad Distrital Francisco José de Caldas, deeply
-        passionate about technological innovation and **free software**. Solid
-        experience in GNU/Linux systems, microservices architecture, infrastructure
-        as code on AWS, and modern frontend development. Former Director of the
-        Universidad Distrital GNU/Linux Group. *"Changing the world one line at a time."*
+      - Systems Engineer who builds products end to end in the financial sector,
+        from scoping to production reliability. Solid experience in **scalable
+        backend** (Java/Spring Boot, Python/Django, Node.js), microservices
+        architecture, **infrastructure as code on AWS**, and modern frontend. I
+        integrate **AI tools (Anthropic Claude, Prompt Flow)** as a genuine
+        accelerator of my development workflow and my team's. Background in secure
+        coding and applied cryptography. Former Director of the Universidad
+        Distrital GNU/Linux Group. *"Changing the world one line at a time."*
     Experience:
       - company: Banco de Bogotá
         position: Systems Analyst II · Cloud Developer
@@ -31,10 +34,11 @@ cv:
         end_date: present
         location: Bogotá, Colombia
         highlights:
-          - Lead the development of high-impact Cloud solutions, integrating
-            cutting-edge technologies for the automation of financial processes.
-          - Recognized for resilience and technical commitment, combining systems
-            architecture with continuous innovation.
+          - Lead the development of high-impact Cloud solutions for the automation
+            of financial processes, owning features end to end from design to
+            production.
+          - Embed AI tools (Anthropic Claude, Prompt Flow) into the development
+            workflow as a genuine team accelerator, not a novelty.
       - company: Banco de Bogotá
         position: Systems Analyst III · Cloud Developer
         start_date: 2024-10
@@ -43,8 +47,9 @@ cv:
         highlights:
           - Evolution of critical digital platforms with IaC on **AWS**, microservices
             architecture, and modern frontend.
-          - Design of resilient, scalable solutions prioritizing security and software
-            quality in the financial sector.
+          - Design of resilient, highly scalable backend solutions prioritizing
+            **secure coding**, software quality, and production reliability in the
+            financial sector.
       - company: Instituto Geográfico Agustín Codazzi (IGAC)
         position: Full Stack Developer
         start_date: 2024-03
@@ -127,16 +132,18 @@ cv:
         date: '2025'
         summary: Custom GRUB2 theme for the Universidad Distrital GNU/Linux Group.
     Skills:
+      - label: Backend
+        details: Python / Django, Java / Spring Boot, Node.js, PHP / Laravel,
+          REST APIs, Microservices
+      - label: Applied AI
+        details: Anthropic Claude, Prompt Flow, Deep Learning, AI as a development
+          workflow accelerator
       - label: Cloud & DevOps
         details: AWS, IaC, Docker, GitLab CI/CD, Jenkins, Traefik
       - label: Frontend
         details: Angular (16-18), AngularJS, RxJS, Angular Material, Vue.js, Bootstrap
-      - label: Backend
-        details: Java / Spring Boot, Django, Python, PHP / Laravel, Node.js
-      - label: Data & AI
-        details: Deep Learning, Anthropic Claude, Prompt Flow
-      - label: Systems
-        details: GNU/Linux, Oracle DB, Microservices, Systems Security
+      - label: Systems & Security
+        details: GNU/Linux, Oracle DB, Secure coding, Applied cryptography
     Certifications:
       - bullet: Engineering Practices for Building Quality Software
       - bullet: Computer Security and Systems Management (Specialization)
