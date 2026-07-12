@@ -571,10 +571,13 @@
       run: () => {
         print(t().hEdu, "dim");
         for (const e of P.education) {
+          const extra = e.url
+            ? `<div class="desc">→ ${link(e.url, lang === "en" ? "public notes & progress ↗" : "apuntes y avances públicos ↗")}</div>`
+            : "";
           printHTML(`<div class="entry">
             <div class="role">${esc(e.degree)}</div>
             <div class="meta">${esc(e.school)}</div>
-            <div class="period">${esc(e.period)}</div>
+            <div class="period">${esc(e.period)}</div>${extra}
           </div>`);
         }
       },
@@ -1576,7 +1579,7 @@
         </div></section>`;
       })()}
       <section class="gui-section"><h2>${H.edu}</h2><div class="gui-timeline">${
-        pr.education.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.degree)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.school)}</div></div>`).join("")
+        pr.education.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.degree)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.school)}</div>${x.url ? `<p><a href="${e(x.url)}" target="_blank" rel="noopener noreferrer">${isEN ? "public notes & progress ↗" : "apuntes y avances públicos ↗"}</a></p>` : ""}</div>`).join("")
       }</div></section>
       <section class="gui-section"><h2>${H.certs}</h2><ul class="gui-certs">${pr.certs.map((c) => `<li>✓ ${e(c)}</li>`).join("")}</ul></section>
       <section class="gui-section"><h2>${H.recs}</h2><div class="gui-quotes">${

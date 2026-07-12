@@ -21,6 +21,7 @@ perfil. También hay una versión visual convencional.
 
 - [CV en español (PDF)](https://juferoga.pro/cv/JuanFelipeRodriguez_CV_es.pdf)
 - [CV in English (PDF)](https://juferoga.pro/cv/JuanFelipeRodriguez_CV_en.pdf)
+- [MCIC — apuntes y avances de la Maestría](https://juferoga.github.io/mcic/): documentación pública de la Maestría en Ciencias de la Información y las Comunicaciones (énfasis en IA, Universidad Distrital)
 - [GitHub](https://github.com/Juferoga)
 - [LinkedIn](https://www.linkedin.com/in/juferoga)
 

@@ -150,6 +150,9 @@ if (cur.length) aboutParas.push(cur.join(" "));
               <span class="gui-entry-period">{e.period}</span>
             </div>
             <div class="gui-entry-company">{e.school}</div>
+            {e.url && (
+              <p><a href={e.url} target="_blank" rel="noopener noreferrer">apuntes y avances públicos ↗</a></p>
+            )}
           </div>
         ))}
       </div>

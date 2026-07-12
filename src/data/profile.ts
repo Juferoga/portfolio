@@ -11,6 +11,8 @@ export interface EducationItem {
   school: string;
   degree: string;
   period: string;
+  /** Sitio con apuntes/avances públicos (opcional) */
+  url?: string;
 }
 
 export interface ProjectItem {
@@ -165,6 +167,7 @@ export const PROFILE: Profile = {
       school: "Universidad Distrital Francisco José de Caldas",
       degree: "Maestría en Ciencias de la Información y las Comunicaciones",
       period: "2026 — 2027",
+      url: "https://juferoga.github.io/mcic/",
     },
     {
       school: "Universidad Distrital Francisco José de Caldas",
@@ -422,6 +425,7 @@ export const PROFILE_EN: Profile = {
       school: "Universidad Distrital Francisco José de Caldas",
       degree: "Master's in Information and Communication Sciences",
       period: "2026 — 2027",
+      url: "https://juferoga.github.io/mcic/",
     },
     {
       school: "Universidad Distrital Francisco José de Caldas",
