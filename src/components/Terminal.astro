@@ -232,7 +232,7 @@
         skills: "Stack y tecnologías", experience: "Trayectoria profesional",
         education: "Formación académica", projects: "Proyectos destacados",
         certs: "Certificaciones", contact: "Cómo contactarme", social: "Mis redes",
-        resume: "Descargar / ver CV", blog: "Blog · notas y artículos",
+        resume: "Descargar / ver CV", blog: "Blog · notas y artículos", timeline: "Línea de tiempo interactiva",
         goals: "Hacia dónde voy", now: "En qué ando ahora",
         recommendations: "Lo que dicen de mí", photo: "Galería", theme: "Cambiar tema de color",
         stats: "Stats de GitHub", visits: "Visitas al sitio", sound: "Sonido de tecleo (on/off)", pong: "Mini-juego 🎮", lang: "Idioma ES/EN",
@@ -289,7 +289,7 @@
         skills: "Stack & technologies", experience: "Professional path",
         education: "Academic background", projects: "Featured projects",
         certs: "Certifications", contact: "How to reach me", social: "My networks",
-        resume: "Download / view CV", blog: "Blog · notes & articles",
+        resume: "Download / view CV", blog: "Blog · notes & articles", timeline: "Interactive timeline",
         goals: "Where I'm going", now: "What I'm up to now",
         recommendations: "What people say about me", photo: "Gallery", theme: "Change color theme",
         stats: "GitHub stats", visits: "Site visits", sound: "Typing sound (on/off)", pong: "Mini-game 🎮", lang: "Language ES/EN",
@@ -408,7 +408,7 @@
         const groups: [string, string[]][] = [
           [cats.about, ["whoami", "about", "now", "goals"]],
           [cats.work, ["skills", "experience", "education", "projects", "certs", "recommendations", "stats"]],
-          [cats.connect, ["contact", "social", "resume", "blog"]],
+          [cats.connect, ["contact", "social", "resume", "blog", "timeline"]],
           [cats.terminal, ["theme", "sound", "lang", "visits", "pong", "clear"]],
         ];
         let html = '<div class="help-cats">';
@@ -664,6 +664,23 @@
         }
         print("");
         print("📚 " + link("/blog", lang === "en" ? "all posts" : "todos los artículos") + " · " + link("/rss.xml", "RSS"), "accent");
+      },
+    },
+
+    timeline: {
+      desc: "Línea de tiempo interactiva",
+      run: async () => {
+        print(lang === "en" ? "// timeline — my life in git, interactive" : "// timeline — mi vida en git, interactiva", "dim");
+        print(
+          lang === "en"
+            ? "opening the interactive timeline… 🕰️"
+            : "abriendo la línea de tiempo interactiva… 🕰️",
+          "accent"
+        );
+        print("→ " + link("/timeline", lang === "en" ? "if it doesn't open, click here" : "si no abre, haz clic aquí"), "dim");
+        track("cmd-timeline-nav");
+        await sleep(650);
+        window.location.href = "/timeline";
       },
     },
 
@@ -1116,6 +1133,11 @@
     "posts": "blog",
     "articulos": "blog",
     "artículos": "blog",
+    "cronologia": "timeline",
+    "cronología": "timeline",
+    "linea-de-tiempo": "timeline",
+    "línea-de-tiempo": "timeline",
+    "historia": "timeline",
     "visitas": "visits",
     "views": "visits",
     "contador": "visits",

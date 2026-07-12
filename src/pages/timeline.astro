@@ -1,0 +1,655 @@
+---
+import BlogLayout from "../layouts/BlogLayout.astro";
+import {
+  MILESTONES,
+  JOBS,
+  GITHUB_YEAR_STATS,
+  eraForYear,
+  GITHUB_TOTAL_COMMITS,
+  type Milestone,
+  type Job,
+} from "../data/timeline.ts";
+
+// --- Agrupación por año (2018 → 2026) ---------------------------------------
+const FROM = 2018;
+const TO = 2026;
+const years = Array.from({ length: TO - FROM + 1 }, (_, i) => FROM + i);
+
+const yearOf = (iso: string) => Number(iso.slice(0, 4));
+
+// Entradas de la línea de tiempo: hitos de repos y empleos, unificados y
+// ordenados por fecha dentro de cada año. El discriminante `type` decide el
+// render (nodo de repo vs. nodo de trabajo con distintivo propio).
+type Entry =
+  | { type: "milestone"; date: string; m: Milestone }
+  | { type: "job"; date: string; j: Job };
+
+const groups = years
+  .map((year) => {
+    const entries: Entry[] = [
+      ...MILESTONES.filter((m) => yearOf(m.date) === year).map(
+        (m): Entry => ({ type: "milestone", date: m.date, m }),
+      ),
+      ...JOBS.filter((j) => yearOf(j.date) === year).map(
+        (j): Entry => ({ type: "job", date: j.date, j }),
+      ),
+    ].sort((a, b) => a.date.localeCompare(b.date));
+    return { year, era: eraForYear(year), items: entries };
+  })
+  .filter((g) => g.items.length > 0);
+
+const totalJobs = JOBS.length;
+
+// --- Datos del gráfico de barras --------------------------------------------
+const chart = GITHUB_YEAR_STATS.slice().sort((a, b) => a.year - b.year);
+const maxCommits = Math.max(...chart.map((s) => s.commits));
+const peakYear = chart.find((s) => s.commits === maxCommits)?.year;
+
+// Barra en caracteres de bloque (▓) — fallback ASCII, sobre él va la barra CSS.
+const blocksFor = (n: number) => "▓".repeat(Math.max(1, Math.round((n / maxCommits) * 28)));
+
+const totalMilestones = MILESTONES.length;
+
+const fmtDate = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("es-CO", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+const fmtMonth = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("es-CO", {
+    year: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+
+// Rango de fechas de un empleo (mes inicio — mes fin / "actualidad").
+const fmtRange = (j: Job) =>
+  `${fmtMonth(j.date)} — ${j.current || !j.end ? "actualidad" : fmtMonth(j.end)}`;
+---
+
+<BlogLayout
+  title="timeline"
+  description="Línea de tiempo interactiva de Juan Felipe Rodríguez Galindo (Juferoga): del primer repo en 2018 a la maestría en IA en 2026, con hitos de GitHub y GitLab."
+  path="/timeline"
+>
+  <h1 class="blog-title">~/timeline</h1>
+  <p class="blog-intro dim">
+    <span class="tl-cmd">git log --all --since=2018 --oneline</span> — {years[0]}→{years[years.length - 1]},
+    {totalMilestones} hitos entre GitHub y GitLab, {totalJobs} empleos y roles, {GITHUB_TOTAL_COMMITS.toLocaleString("es-CO")} contribuciones. Toca un hito para expandirlo.
+  </p>
+
+  <!-- ===================== GRÁFICO DE COMMITS ===================== -->
+  <section class="tl-chart" aria-labelledby="tl-chart-h">
+    <h2 id="tl-chart-h" class="tl-h">
+      <span class="tl-h-prompt">$</span> commits --per-year
+    </h2>
+    <ul class="tl-bars" role="list">
+      {chart.map((s) => {
+        const pct = Math.max(3, Math.round((s.commits / maxCommits) * 100));
+        const peak = s.year === peakYear;
+        return (
+          <li class={`tl-bar-row${peak ? " is-peak" : ""}`}>
+            <span class="tl-bar-year">{s.year}</span>
+            <span class="tl-bar-track">
+              <span class="tl-bar-fill" style={`width:${pct}%`} aria-hidden="true">
+                <span class="tl-bar-blocks">{blocksFor(s.commits)}</span>
+              </span>
+            </span>
+            <span class="tl-bar-num">
+              {s.commits}
+              {peak && <span class="tl-bar-flag"> ◄ pico</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+    <p class="tl-chart-note dim">contribuciones GitHub por año · 2026 hasta julio</p>
+  </section>
+
+  <!-- ===================== FILTROS ===================== -->
+  <div class="tl-filters" role="group" aria-label="Filtrar hitos de la línea de tiempo">
+    <span class="tl-filters-label dim">filtrar:</span>
+    <button type="button" class="tl-filter is-active" data-filter="all" aria-pressed="true">[todo]</button>
+    <button type="button" class="tl-filter" data-filter="github" aria-pressed="false">[github]</button>
+    <button type="button" class="tl-filter" data-filter="gitlab" aria-pressed="false">[gitlab]</button>
+    <button type="button" class="tl-filter" data-filter="hitos" aria-pressed="false">[hitos]</button>
+    <button type="button" class="tl-filter" data-filter="trabajo" aria-pressed="false">[trabajo]</button>
+    <span class="tl-count dim" aria-live="polite" data-tl-count></span>
+  </div>
+
+  <!-- ===================== LÍNEA DE TIEMPO ===================== -->
+  <div class="tl-timeline" data-tl-root>
+    {groups.map((g) => (
+      <section class="tl-year" data-tl-year={g.year}>
+        <header class="tl-year-head">
+          <span class="tl-year-num" style={`--era-color:${g.era?.color ?? "var(--accent)"}`}>{g.year}</span>
+          {g.era && (
+            <span class="tl-year-era">
+              <span class="tl-era-emoji" aria-hidden="true">{g.era.emoji}</span>
+              {g.era.title}
+            </span>
+          )}
+        </header>
+        <ul class="tl-list" role="list">
+          {g.items.map((entry, i) => {
+            const id = `tl-${g.year}-${i}`;
+
+            if (entry.type === "job") {
+              const j = entry.j;
+              return (
+                <li class="tl-item" data-tl-item data-source="work" data-kind="job">
+                  <button
+                    type="button"
+                    class="tl-node tl-node--work is-job"
+                    id={`${id}-btn`}
+                    aria-expanded="false"
+                    aria-controls={`${id}-panel`}
+                    data-tl-node
+                  >
+                    <span class="tl-dot" aria-hidden="true"></span>
+                    <span class="tl-node-main">
+                      <span class="tl-node-top">
+                        <time class="tl-node-date" datetime={j.date}>{fmtRange(j)}</time>
+                        <span class="tl-work-flag">💼 trabajo</span>
+                        {j.private && (
+                          <span class="tl-priv-flag" title="El código vivió en GitLab privado/institucional">🔒 GitLab privado</span>
+                        )}
+                        {j.source === "github" && !j.private && (
+                          <span class="tl-src tl-src--github">GH</span>
+                        )}
+                        {j.current && <span class="tl-now-flag">● actual</span>}
+                      </span>
+                      <span class="tl-node-title">
+                        {j.role} <span class="tl-node-org">· {j.org}</span>
+                      </span>
+                    </span>
+                    <span class="tl-caret" aria-hidden="true">▸</span>
+                  </button>
+                  <div class="tl-panel" id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`} hidden>
+                    <p class="tl-desc">{j.desc}</p>
+                    {j.note && <p class="tl-note dim">{j.note}</p>}
+                    {j.tech.length > 0 && (
+                      <p class="tl-tech">
+                        <span class="tl-tech-label dim">stack:</span>
+                        {j.tech.map((t) => (
+                          <span class="tl-chip">{t}</span>
+                        ))}
+                      </p>
+                    )}
+                    {j.private && !j.url && (
+                      <p class="tl-open dim">// código en GitLab privado/institucional — sin repo público</p>
+                    )}
+                    {j.url && (
+                      <p class="tl-open">
+                        <a href={j.url} target="_blank" rel="noopener noreferrer">
+                          abrir repo relacionado ↗
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            }
+
+            const m = entry.m;
+            return (
+              <li
+                class="tl-item"
+                data-tl-item
+                data-source={m.source}
+                data-kind={m.kind}
+              >
+                <button
+                  type="button"
+                  class={`tl-node tl-node--${m.source}${m.kind === "milestone" ? " is-hito" : ""}`}
+                  id={`${id}-btn`}
+                  aria-expanded="false"
+                  aria-controls={`${id}-panel`}
+                  data-tl-node
+                >
+                  <span class="tl-dot" aria-hidden="true"></span>
+                  <span class="tl-node-main">
+                    <span class="tl-node-top">
+                      <time class="tl-node-date" datetime={m.date}>{fmtDate(m.date)}</time>
+                      <span class={`tl-src tl-src--${m.source}`}>
+                        {m.source === "github" ? "GH" : "GL"}
+                      </span>
+                      {m.kind === "milestone" && <span class="tl-hito-flag">★ hito</span>}
+                    </span>
+                    <span class="tl-node-title">{m.title}</span>
+                  </span>
+                  <span class="tl-caret" aria-hidden="true">▸</span>
+                </button>
+                <div class="tl-panel" id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`} hidden>
+                  <p class="tl-desc">{m.desc}</p>
+                  {m.repos.length > 0 && (
+                    <p class="tl-repos">
+                      <span class="tl-repos-label dim">repos:</span>
+                      {m.repos.map((r, ri) => (
+                        <>
+                          {ri > 0 && <span class="tl-sep" aria-hidden="true"> · </span>}
+                          {ri === 0 && m.url ? (
+                            <a class="tl-repo" href={m.url} target="_blank" rel="noopener noreferrer">{r}</a>
+                          ) : (
+                            <span class="tl-repo tl-repo--plain">{r}</span>
+                          )}
+                        </>
+                      ))}
+                    </p>
+                  )}
+                  {m.url && (
+                    <p class="tl-open">
+                      <a href={m.url} target="_blank" rel="noopener noreferrer">
+                        abrir en {m.source === "github" ? "GitHub" : "GitLab"} ↗
+                      </a>
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    ))}
+    <p class="tl-empty dim" data-tl-empty hidden>// sin hitos para este filtro</p>
+  </div>
+</BlogLayout>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // Interactividad vanilla — sin frameworks. Los datos ya están en el DOM.
+  // ---------------------------------------------------------------------------
+  const root = document.querySelector<HTMLElement>("[data-tl-root]");
+  if (root) {
+    const nodes = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-tl-node]"));
+    const items = Array.from(root.querySelectorAll<HTMLLIElement>("[data-tl-item]"));
+    const years = Array.from(root.querySelectorAll<HTMLElement>("[data-tl-year]"));
+    const filters = Array.from(document.querySelectorAll<HTMLButtonElement>(".tl-filter"));
+    const countEl = document.querySelector<HTMLElement>("[data-tl-count]");
+    const emptyEl = document.querySelector<HTMLElement>("[data-tl-empty]");
+
+    // --- Expandir / colapsar un hito ---
+    function toggle(btn: HTMLButtonElement, force?: boolean) {
+      const panel = document.getElementById(btn.getAttribute("aria-controls") || "");
+      if (!panel) return;
+      const open = force ?? btn.getAttribute("aria-expanded") !== "true";
+      btn.setAttribute("aria-expanded", String(open));
+      panel.hidden = !open;
+    }
+
+    nodes.forEach((btn) => {
+      btn.addEventListener("click", () => toggle(btn));
+    });
+
+    // --- Filtros ---
+    function matches(item: HTMLElement, filter: string): boolean {
+      if (filter === "all") return true;
+      if (filter === "hitos") return item.dataset.kind === "milestone";
+      if (filter === "trabajo") return item.dataset.kind === "job";
+      return item.dataset.source === filter;
+    }
+
+    function applyFilter(filter: string) {
+      let visible = 0;
+      items.forEach((item) => {
+        const show = matches(item, filter);
+        item.hidden = !show;
+        if (show) visible++;
+        if (!show) {
+          const btn = item.querySelector<HTMLButtonElement>("[data-tl-node]");
+          if (btn && btn.getAttribute("aria-expanded") === "true") toggle(btn, false);
+        }
+      });
+      // Oculta secciones de año sin hitos visibles
+      years.forEach((sec) => {
+        const anyVisible = Array.from(
+          sec.querySelectorAll<HTMLElement>("[data-tl-item]")
+        ).some((it) => !it.hidden);
+        sec.hidden = !anyVisible;
+      });
+      if (emptyEl) emptyEl.hidden = visible > 0;
+      if (countEl) {
+        const label =
+          filter === "all"
+            ? "entradas"
+            : filter === "hitos"
+              ? "hitos clave"
+              : filter === "trabajo"
+                ? "empleos y roles"
+                : filter;
+        countEl.textContent = `${visible} ${label}`;
+      }
+    }
+
+    filters.forEach((f) => {
+      f.addEventListener("click", () => {
+        filters.forEach((o) => {
+          o.classList.remove("is-active");
+          o.setAttribute("aria-pressed", "false");
+        });
+        f.classList.add("is-active");
+        f.setAttribute("aria-pressed", "true");
+        applyFilter(f.dataset.filter || "all");
+      });
+    });
+
+    // --- Navegación por teclado (↑ / ↓ entre hitos visibles, Enter/Espacio expande) ---
+    function visibleNodes(): HTMLButtonElement[] {
+      return nodes.filter((n) => {
+        const item = n.closest<HTMLElement>("[data-tl-item]");
+        return item ? !item.hidden : true;
+      });
+    }
+
+    root.addEventListener("keydown", (e) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest<HTMLButtonElement>("[data-tl-node]");
+      if (!btn) return;
+      const vis = visibleNodes();
+      const idx = vis.indexOf(btn);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        (vis[idx + 1] ?? vis[0])?.focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        (vis[idx - 1] ?? vis[vis.length - 1])?.focus();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        vis[0]?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        vis[vis.length - 1]?.focus();
+      }
+      // Enter / Espacio ya los maneja el <button> nativo.
+    });
+
+    // Estado inicial
+    applyFilter("all");
+  }
+</script>
+
+<style>
+  .tl-cmd {
+    color: var(--fg-bright);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--fg-dim);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+
+  .tl-h {
+    color: var(--accent);
+    font-size: 16px;
+    margin: 0 0 14px;
+    letter-spacing: 0.5px;
+  }
+  .tl-h-prompt { color: var(--fg-dim); margin-right: 6px; }
+
+  /* ---------------- Gráfico de barras ---------------- */
+  .tl-chart {
+    border: 1px solid var(--fg-dim);
+    border-radius: 10px;
+    padding: 18px 18px 14px;
+    margin: 26px 0 30px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .tl-bars { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .tl-bar-row {
+    display: grid;
+    grid-template-columns: 3.5ch 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+  .tl-bar-year { color: var(--fg-dim); font-size: 13px; text-align: right; }
+  .tl-bar-track {
+    height: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .tl-bar-fill {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    min-width: 2px;
+    background: var(--fg-dim);
+    border-radius: 3px;
+    transition: filter 0.2s;
+    overflow: hidden;
+  }
+  .tl-bar-blocks {
+    color: rgba(0, 0, 0, 0.35);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: -1px;
+    white-space: nowrap;
+    padding-left: 2px;
+    user-select: none;
+  }
+  .tl-bar-num {
+    color: var(--fg-bright);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    min-width: 4ch;
+  }
+  .tl-bar-flag { color: var(--warn); font-weight: 700; font-size: 12px; }
+  .is-peak .tl-bar-fill {
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--glow), 0 0 4px var(--glow);
+  }
+  .is-peak .tl-bar-year,
+  .is-peak .tl-bar-num { color: var(--accent); text-shadow: 0 0 8px var(--glow); }
+  .tl-chart-note { font-size: 12px; margin-top: 12px; }
+
+  /* ---------------- Filtros ---------------- */
+  .tl-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 0 24px;
+  }
+  .tl-filters-label { font-size: 13px; }
+  .tl-filter {
+    cursor: pointer;
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--fg-dim);
+    border-radius: 6px;
+    padding: 4px 11px;
+    font: inherit;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .tl-filter:hover { color: var(--fg-bright); border-color: var(--fg-bright); }
+  .tl-filter.is-active {
+    color: var(--bg);
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+    box-shadow: 0 0 12px var(--glow);
+  }
+  .tl-count { font-size: 12.5px; margin-left: auto; }
+
+  /* ---------------- Timeline ---------------- */
+  .tl-timeline { position: relative; }
+  .tl-year { margin: 0 0 8px; }
+  .tl-year[hidden] { display: none; }
+
+  .tl-year-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0 6px;
+    position: sticky;
+    top: 52px;
+    background: linear-gradient(to bottom, rgba(5, 10, 6, 0.96) 70%, transparent);
+    z-index: 5;
+    backdrop-filter: blur(4px);
+  }
+  .tl-year-num {
+    color: var(--era-color, var(--accent));
+    font-weight: 800;
+    font-size: 22px;
+    text-shadow: 0 0 12px var(--glow);
+  }
+  .tl-year-era { color: var(--fg-dim); font-size: 13px; }
+  .tl-era-emoji { margin-right: 4px; }
+
+  .tl-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 4px;
+    border-left: 2px solid var(--fg-dim);
+    padding-left: 0;
+  }
+  .tl-item[hidden] { display: none; }
+
+  /* Nodo clicable (botón real) */
+  .tl-node {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    margin-left: -2px;
+    padding: 9px 10px 9px 16px;
+    cursor: pointer;
+    font: inherit;
+    color: var(--fg);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tl-node:hover { background: rgba(255, 255, 255, 0.03); }
+  .tl-node[aria-expanded="true"] { border-left-color: var(--accent); background: rgba(255, 255, 255, 0.03); }
+  .tl-node:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+
+  .tl-dot {
+    flex: 0 0 auto;
+    width: 9px; height: 9px;
+    margin-top: 6px; margin-left: -21px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--fg-dim);
+    transition: all 0.15s;
+  }
+  .tl-node--github .tl-dot { border-color: var(--fg); }
+  .tl-node--gitlab .tl-dot { border-color: var(--warn); }
+  .tl-node.is-hito .tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
+  .tl-node[aria-expanded="true"] .tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--glow); }
+
+  .tl-node-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .tl-node-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tl-node-date { color: var(--fg-dim); font-size: 12px; }
+
+  /* Distintivo de fuente (sutil, distinto por plataforma) */
+  .tl-src {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 0 5px;
+    border-radius: 3px;
+    border: 1px solid currentColor;
+    line-height: 1.5;
+  }
+  .tl-src--github { color: var(--fg); }
+  .tl-src--gitlab { color: var(--warn); }
+
+  .tl-hito-flag { color: var(--accent); font-size: 11px; font-weight: 700; text-shadow: 0 0 6px var(--glow); }
+
+  /* ---- Nodo de trabajo (distintivo propio, distinto de repos/hitos) ---- */
+  .tl-node--work .tl-dot { border-color: var(--link); }
+  .tl-node.is-job .tl-dot {
+    background: var(--link);
+    border-color: var(--link);
+    box-shadow: 0 0 8px var(--link);
+    border-radius: 2px; /* cuadrado sutil: el trabajo se ve distinto al repo */
+  }
+  .tl-node.is-job[aria-expanded="true"] { border-left-color: var(--link); }
+  .tl-node.is-job[aria-expanded="true"] .tl-dot { box-shadow: 0 0 10px var(--link); }
+  .tl-node.is-job[aria-expanded="true"] .tl-caret { color: var(--link); }
+  .tl-work-flag { color: var(--link); font-size: 11px; font-weight: 700; }
+  .tl-priv-flag { color: var(--warn); font-size: 11px; font-weight: 700; }
+  .tl-now-flag { color: var(--accent); font-size: 11px; font-weight: 700; text-shadow: 0 0 6px var(--glow); }
+  .tl-node.is-job .tl-node-title { color: var(--fg-bright); font-weight: 700; }
+  .tl-node-org { color: var(--fg-dim); font-weight: 400; font-size: 13.5px; }
+
+  /* ---- Panel de trabajo: nota y stack ---- */
+  .tl-note { color: var(--fg-dim); font-size: 13px; line-height: 1.55; margin: 0 0 10px; font-style: italic; }
+  .tl-tech { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; margin: 0 0 6px; }
+  .tl-tech-label { font-size: 12.5px; margin-right: 4px; }
+  .tl-chip {
+    font-size: 12px;
+    color: var(--fg);
+    border: 1px solid var(--fg-dim);
+    border-radius: 4px;
+    padding: 1px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    white-space: nowrap;
+  }
+
+  .tl-node-title {
+    color: var(--fg-bright);
+    font-size: 14.5px;
+    line-height: 1.4;
+  }
+  .tl-node.is-hito .tl-node-title { color: var(--fg-bright); font-weight: 700; }
+  .tl-node:hover .tl-node-title { text-shadow: 0 0 8px var(--glow); }
+
+  .tl-caret {
+    flex: 0 0 auto;
+    color: var(--fg-dim);
+    font-size: 12px;
+    margin-top: 4px;
+    transition: transform 0.18s, color 0.15s;
+  }
+  .tl-node[aria-expanded="true"] .tl-caret { transform: rotate(90deg); color: var(--accent); }
+
+  /* Panel de detalle */
+  .tl-panel {
+    padding: 4px 12px 14px 28px;
+    animation: tlReveal 0.2s ease both;
+  }
+  .tl-panel[hidden] { display: none; }
+  @keyframes tlReveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  .tl-desc { color: var(--fg); line-height: 1.65; margin: 0 0 10px; }
+  .tl-repos { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; margin: 0 0 6px; }
+  .tl-repos-label { font-size: 12.5px; margin-right: 6px; }
+  .tl-repo {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--link);
+    font-size: 13px;
+  }
+  .tl-repo:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
+  .tl-repo--plain { color: var(--fg-dim); border-bottom: none; }
+  .tl-sep { color: var(--fg-dim); }
+  .tl-open a { color: var(--accent); text-decoration: none; font-size: 13px; border-bottom: 1px dotted var(--accent); }
+  .tl-open a:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
+
+  .tl-empty { text-align: center; padding: 30px 0; font-size: 14px; }
+  .tl-empty[hidden] { display: none; }
+
+  @media (max-width: 640px) {
+    .tl-year-head { top: 48px; }
+    .tl-bar-row { grid-template-columns: 3ch 1fr auto; gap: 7px; }
+    .tl-bar-num { min-width: 3ch; }
+    .tl-count { margin-left: 0; width: 100%; }
+    .tl-panel { padding-left: 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tl-panel, .tl-caret, .tl-bar-fill { animation: none !important; transition: none !important; }
+  }
+</style>

@@ -18,6 +18,7 @@ const fmt = (d: Date) =>
   <h1 class="blog-title">~/blog</h1>
   <p class="blog-intro dim">
     notas sobre cloud, backend, IA aplicada y software libre — cortas y al grano, como un buen commit.
+    <a class="blog-timeline-link" href="/timeline">ver la línea de tiempo →</a>
   </p>
 
   <ul class="post-list">
@@ -39,6 +40,8 @@ const fmt = (d: Date) =>
 <style>
   .blog-title { color: var(--fg-bright); font-size: clamp(26px, 5vw, 34px); text-shadow: 0 0 12px var(--glow); }
   .blog-intro { color: var(--fg-dim); margin: 8px 0 30px; }
+  .blog-timeline-link { color: var(--link); text-decoration: none; border-bottom: 1px dotted var(--link); white-space: nowrap; }
+  .blog-timeline-link:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
   .post-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 26px; }
   .post-item { border-left: 2px solid var(--fg-dim); padding-left: 16px; }
   .post-link { text-decoration: none; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
