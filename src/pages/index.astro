@@ -15,7 +15,6 @@ const blogPosts = (await getCollection("blog", ({ data }) => !data.draft))
   .map((p) => ({ title: p.data.title, url: `/blog/${p.id}`, date: p.data.date.toISOString().slice(0, 10) }));
 
 // Analítica GoatCounter: open source, sin cookies, sin datos personales (no requiere banner).
-// Regístrate en https://www.goatcounter.com con el código "juferoga" para activarla.
 const GOATCOUNTER = "https://juferoga.goatcounter.com/count";
 
 const person = {

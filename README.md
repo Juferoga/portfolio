@@ -93,14 +93,12 @@ oculto hasta que lo publiques.
 
 El sitio usa [GoatCounter](https://www.goatcounter.com): open source, gratuito,
 **sin cookies ni datos personales** (no requiere banner de consentimiento).
-
-**Activarla (una sola vez):** crea una cuenta en goatcounter.com con el código
-`juferoga` (URL del sitio: `https://juferoga.pro`). El script solo se inyecta
-en builds de producción (`import.meta.env.PROD` en `src/pages/index.astro`).
+El script solo se inyecta en builds de producción (`import.meta.env.PROD`).
 
 Además de las visitas, se registran **eventos anónimos**: qué comandos ejecutan
 los visitantes (`cmd-<nombre>`), el recorrido guiado (`tour`) y el cambio a la
-versión visual (`gui-visual`). Panel: `https://juferoga.goatcounter.com`.
+versión visual (`gui-visual`). El comando `visits` de la terminal muestra el
+total público de visitas.
 
 ## 🎨 Personalización rápida
 
