@@ -1,0 +1,92 @@
+---
+import "../styles/global.css";
+import { PROFILE } from "../data/profile";
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>404 — página no encontrada · juferoga.pro</title>
+    <meta name="description" content="Página no encontrada — portafolio de Juan Felipe Rodríguez Galindo." />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#0a0e0a" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      .e404-wrap {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .e404 {
+        width: min(640px, 94vw);
+        border: 1px solid var(--fg-dim);
+        border-radius: 10px;
+        background: rgba(5, 10, 6, 0.72);
+        box-shadow: 0 30px 80px -20px var(--shadow), 0 0 60px -10px var(--glow);
+        overflow: hidden;
+      }
+      .e404-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--fg-dim);
+        background: linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(0,0,0,0.2));
+        color: var(--fg-dim);
+        font-size: 12.5px;
+      }
+      .e404-dot { width: 12px; height: 12px; border-radius: 50%; }
+      .e404-body { padding: 22px 24px 26px; text-shadow: 0 0 4px var(--glow); }
+      .e404-body .line { margin: 4px 0; }
+      .e404-code {
+        font-size: clamp(40px, 12vw, 72px);
+        font-weight: 800;
+        color: var(--fg-bright);
+        text-shadow: 0 0 18px var(--glow);
+        margin: 10px 0 2px;
+      }
+      .e404-home {
+        display: inline-block;
+        margin-top: 18px;
+        padding: 9px 16px;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        color: var(--accent);
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .e404-home:hover, .e404-home:focus-visible {
+        background: var(--accent);
+        color: var(--bg);
+        box-shadow: 0 0 16px var(--glow);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="crt-overlay" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <main class="e404-wrap">
+      <div class="e404">
+        <div class="e404-bar" aria-hidden="true">
+          <span class="e404-dot" style="background:#ff5f56"></span>
+          <span class="e404-dot" style="background:#ffbd2e"></span>
+          <span class="e404-dot" style="background:#27c93f"></span>
+          <span style="flex:1;text-align:center">{PROFILE.handle}@portfolio: ~</span>
+        </div>
+        <div class="e404-body">
+          <h1 class="e404-code">404</h1>
+          <p class="line"><span class="prompt-user">{PROFILE.handle}</span><span class="prompt-at">@</span><span class="prompt-host">portfolio</span><span class="prompt-sep">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span> cat esta-pagina</p>
+          <p class="line error">cat: esta-pagina: No such file or directory</p>
+          <p class="line dim">la página que buscas no existe (o nunca existió 👀)</p>
+          <a class="e404-home" href="/">↩ volver al inicio</a>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

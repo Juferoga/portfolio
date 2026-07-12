@@ -6,6 +6,11 @@ efectos CRT, temas de color y varios easter eggs ocultos.
 
 Construido con [**Astro**](https://astro.build) · HTML/CSS/TS · sin dependencias de runtime.
 
+**Accesibilidad y calidad:** landmarks y `h1` únicos por vista, lightbox como
+diálogo con foco atrapado, `aria-live` en la salida de la terminal, contraste AA,
+`prefers-reduced-motion`, fallback completo sin JavaScript (se sirve la versión
+visual renderizada en build), JSON-LD, sitemap y `astro check` en CI.
+
 ## 🚀 Comandos del proyecto
 
 | Comando           | Acción                                       |
@@ -14,6 +19,7 @@ Construido con [**Astro**](https://astro.build) · HTML/CSS/TS · sin dependenci
 | `npm run dev`     | Servidor local en `http://localhost:4321`    |
 | `npm run build`   | Genera el sitio estático en `dist/`          |
 | `npm run preview` | Previsualiza el build de producción          |
+| `npm run check`   | Chequeo de tipos y diagnósticos (`astro check`) |
 
 > Requiere Node 18+ (probado con Node 26).
 
@@ -60,6 +66,41 @@ publica automáticamente en cada push a `main`.
      - O un `CNAME` de `www` → `juferoga.github.io`.
    - En GitHub → Settings → Pages → **Custom domain** escribe `juferoga.pro` y
      activa **Enforce HTTPS**.
+
+## 📝 Blog
+
+El blog vive en `/blog` (con feed RSS en `/rss.xml`). Para publicar un post,
+crea un archivo Markdown en `src/content/blog/` con este frontmatter:
+
+```markdown
+---
+title: "Título del post"
+description: "Resumen corto (aparece en la lista, el RSS y los buscadores)."
+date: 2026-07-12
+tags: ["cloud", "linux"]
+draft: false   # ponlo en true para guardarlo sin publicar
+---
+
+Contenido en **Markdown** normal…
+```
+
+El nombre del archivo es la URL (`mi-post.md` → `/blog/mi-post`). Al hacer
+push, el post aparece en `/blog`, en el RSS, en el sitemap y en el comando
+`blog` de la terminal (muestra los 5 más recientes). Con `draft: true` queda
+oculto hasta que lo publiques.
+
+## 📊 Analítica (GoatCounter)
+
+El sitio usa [GoatCounter](https://www.goatcounter.com): open source, gratuito,
+**sin cookies ni datos personales** (no requiere banner de consentimiento).
+
+**Activarla (una sola vez):** crea una cuenta en goatcounter.com con el código
+`juferoga` (URL del sitio: `https://juferoga.pro`). El script solo se inyecta
+en builds de producción (`import.meta.env.PROD` en `src/pages/index.astro`).
+
+Además de las visitas, se registran **eventos anónimos**: qué comandos ejecutan
+los visitantes (`cmd-<nombre>`), el recorrido guiado (`tour`) y el cambio a la
+versión visual (`gui-visual`). Panel: `https://juferoga.goatcounter.com`.
 
 ## 🎨 Personalización rápida
 

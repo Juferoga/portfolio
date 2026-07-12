@@ -1,0 +1,5 @@
+# security.txt — RFC 9116 (https://securitytxt.org)
+Contact: mailto:juferoga@gmail.com
+Expires: 2027-07-12T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://juferoga.pro/.well-known/security.txt

@@ -1,0 +1,49 @@
+---
+import { getCollection, render } from "astro:content";
+import BlogLayout from "../../layouts/BlogLayout.astro";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog", ({ data }) => !data.draft);
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+---
+
+<BlogLayout
+  title={post.data.title}
+  description={post.data.description}
+  path={`/blog/${post.id}`}
+  publishedDate={post.data.date}
+>
+  <article>
+    <header class="post-header">
+      <h1 class="post-title">{post.data.title}</h1>
+      <p class="post-meta">
+        <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
+        {post.data.tags.length > 0 && (
+          <span class="post-tags">{post.data.tags.map((t) => <span class="post-tag">#{t}</span>)}</span>
+        )}
+      </p>
+    </header>
+    <div class="blog-prose">
+      <Content />
+    </div>
+    <p class="post-back"><a href="/blog">← todos los artículos</a></p>
+  </article>
+</BlogLayout>
+
+<style>
+  .post-header { margin-bottom: 8px; }
+  .post-title { color: var(--fg-bright); font-size: clamp(24px, 5vw, 32px); line-height: 1.25; text-shadow: 0 0 12px var(--glow); }
+  .post-meta { color: var(--fg-dim); font-size: 13.5px; margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .post-tags { display: flex; gap: 10px; }
+  .post-tag { color: var(--fg-dim); }
+  .post-back { margin-top: 34px; }
+  .post-back a { color: var(--link); text-decoration: none; border-bottom: 1px dotted var(--link); }
+  .post-back a:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
+</style>

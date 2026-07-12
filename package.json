@@ -3,15 +3,39 @@
   "type": "module",
   "version": "1.0.0",
   "description": "Portafolio interactivo tipo terminal hacker — Juan Felipe Rodríguez Galindo",
+  "author": "Juan Felipe Rodríguez Galindo (https://juferoga.pro)",
+  "license": "GPL-2.0-only",
+  "homepage": "https://juferoga.pro",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Juferoga/portfolio.git"
+  },
+  "keywords": [
+    "portfolio",
+    "astro",
+    "terminal",
+    "juferoga"
+  ],
+  "engines": {
+    "node": ">=18.17.1"
+  },
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "check": "astro check",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "^3.4.1",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "astro": "^5.7.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.8.0"
   },
   "allowScripts": {
     "esbuild@0.27.7": true,

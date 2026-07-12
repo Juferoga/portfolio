@@ -12,6 +12,24 @@ export interface GithubStats {
   fetchedAt: string;
 }
 
+/** Subconjunto de la respuesta de GET /users/{user} que usamos. */
+interface GithubUser {
+  login: string;
+  name: string | null;
+  followers: number;
+  public_repos: number;
+  created_at: string;
+}
+
+/** Subconjunto de la respuesta de GET /users/{user}/repos que usamos. */
+interface GithubRepo {
+  name: string;
+  fork: boolean;
+  language: string | null;
+  stargazers_count: number;
+  html_url: string;
+}
+
 let _cache: { at: number; data: GithubStats | null } | null = null;
 const DEV_TTL = 1000 * 60 * 30; // 30 min
 
@@ -31,8 +49,9 @@ export async function getGithubStats(user = "Juferoga"): Promise<GithubStats | n
     ]);
     if (!uRes.ok || !rRes.ok) throw new Error(`GitHub API ${uRes.status}/${rRes.status}`);
 
-    const u: any = await uRes.json();
-    const repos: any[] = await rRes.json();
+    const u = (await uRes.json()) as GithubUser;
+    const repos = (await rRes.json()) as GithubRepo[];
+    if (!Array.isArray(repos)) throw new Error("GitHub API: respuesta inesperada de /repos");
     const own = repos.filter((r) => !r.fork);
 
     const totalStars = own.reduce((s, r) => s + (r.stargazers_count || 0), 0);

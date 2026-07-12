@@ -1,31 +1,36 @@
 ---
 ---
 
-<canvas id="bg-canvas"></canvas>
-<canvas id="matrix-canvas"></canvas>
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+<canvas id="matrix-canvas" aria-hidden="true"></canvas>
 
-<div class="crt-overlay"></div>
-<div class="scanlines"></div>
-<div class="flicker"></div>
+<div class="crt-overlay" aria-hidden="true"></div>
+<div class="scanlines" aria-hidden="true"></div>
+<div class="flicker" aria-hidden="true"></div>
 
-<main class="terminal" id="terminal" aria-live="polite">
+<main class="terminal" id="terminal">
+  <h1 class="sr-only">Juan Felipe Rodríguez Galindo — portafolio interactivo tipo terminal</h1>
   <header class="titlebar">
     <div class="dots">
-      <span class="dot red" id="dot-red" title="Cerrar"></span>
-      <span class="dot yellow" id="dot-yellow" title="Minimizar"></span>
-      <span class="dot green" id="dot-green" title="Maximizar"></span>
+      <button type="button" class="dot red" id="dot-red" title="Cerrar" aria-label="Cerrar terminal (broma: no se apaga)"></button>
+      <button type="button" class="dot yellow" id="dot-yellow" title="Minimizar" aria-label="Minimizar terminal"></button>
+      <button type="button" class="dot green" id="dot-green" title="Maximizar" aria-label="Maximizar terminal"></button>
     </div>
     <div class="titlebar-text" id="titlebar-text">juferoga@portfolio: ~</div>
     <div class="titlebar-actions">
-      <button id="gui-btn" class="tb-btn tb-btn-wide" title="Cambiar a versión visual">🖥 visual</button>
-      <button id="lang-btn" class="tb-btn" title="Idioma ES/EN">🌐 ES</button>
-      <button id="sound-btn" class="tb-btn" title="Sonido de tecleo (on/off)">🔊</button>
-      <button id="theme-btn" class="tb-btn" title="Cambiar tema (verde/ámbar/azul)">◐</button>
+      <button type="button" id="gui-btn" class="tb-btn tb-btn-wide" title="Cambiar a versión visual" aria-label="Cambiar a versión visual">🖥 visual</button>
+      <button type="button" id="lang-btn" class="tb-btn" title="Idioma ES/EN" aria-label="Cambiar idioma (español/inglés)">🌐 ES</button>
+      <button type="button" id="sound-btn" class="tb-btn" title="Sonido de tecleo (on/off)" aria-label="Sonido de tecleo" aria-pressed="true">🔊</button>
+      <button type="button" id="theme-btn" class="tb-btn" title="Cambiar tema (verde/ámbar/azul)" aria-label="Cambiar tema de color (verde, ámbar, azul)">◐</button>
     </div>
   </header>
 
   <div class="screen" id="screen">
-    <div id="output"></div>
+    <p class="sr-only">
+      Portafolio interactivo con estética de terminal: escribe comandos como «help» o «about» y presiona Enter.
+      Si prefieres una página convencional, usa el botón «visual» de la barra superior.
+    </p>
+    <div id="output" role="log" aria-live="polite"></div>
 
     <div class="input-line" id="input-line" style="display:none;">
       <span class="prompt"
@@ -54,17 +59,18 @@
   <nav class="quickbar" id="quickbar" aria-label="Accesos rápidos"></nav>
 </main>
 
-<div class="hint" id="hint">escribe <b>help</b> y presiona <b>Enter</b> ↵</div>
+<!-- Pista visual; los lectores de pantalla ya reciben la instrucción vía .sr-only dentro de la terminal -->
+<div class="hint" id="hint" aria-hidden="true">escribe <b>help</b> y presiona <b>Enter</b> ↵</div>
 
-<div class="lightbox" id="lightbox" aria-hidden="true">
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Visor de imágenes" aria-hidden="true">
   <div class="lb-backdrop" data-lb-close></div>
   <figure class="lb-frame">
-    <button class="lb-close" data-lb-close title="Cerrar (Esc)">✕</button>
-    <button class="lb-nav lb-prev" data-lb-prev title="Anterior (←)">‹</button>
-    <img class="lb-img" id="lb-img" src="" alt="" />
-    <button class="lb-nav lb-next" data-lb-next title="Siguiente (→)">›</button>
+    <button type="button" class="lb-close" data-lb-close title="Cerrar (Esc)" aria-label="Cerrar visor de imágenes">✕</button>
+    <button type="button" class="lb-nav lb-prev" data-lb-prev title="Anterior (←)" aria-label="Imagen anterior">‹</button>
+    <img class="lb-img" id="lb-img" alt="" />
+    <button type="button" class="lb-nav lb-next" data-lb-next title="Siguiente (→)" aria-label="Imagen siguiente">›</button>
     <figcaption class="lb-caption" id="lb-caption"></figcaption>
-    <div class="lb-count" id="lb-count"></div>
+    <div class="lb-count" id="lb-count" aria-hidden="true"></div>
   </figure>
 </div>
 
@@ -226,9 +232,10 @@
         skills: "Stack y tecnologías", experience: "Trayectoria profesional",
         education: "Formación académica", projects: "Proyectos destacados",
         certs: "Certificaciones", contact: "Cómo contactarme", social: "Mis redes",
-        resume: "Descargar / ver CV", goals: "Hacia dónde voy", now: "En qué ando ahora",
+        resume: "Descargar / ver CV", blog: "Blog · notas y artículos",
+        goals: "Hacia dónde voy", now: "En qué ando ahora",
         recommendations: "Lo que dicen de mí", photo: "Galería", theme: "Cambiar tema de color",
-        stats: "Stats de GitHub", sound: "Sonido de tecleo (on/off)", pong: "Mini-juego 🎮", lang: "Idioma ES/EN",
+        stats: "Stats de GitHub", visits: "Visitas al sitio", sound: "Sonido de tecleo (on/off)", pong: "Mini-juego 🎮", lang: "Idioma ES/EN",
         banner: "Mostrar el banner ASCII", clear: "Limpiar la pantalla", help: "Esta ayuda",
       },
       chips: [
@@ -282,9 +289,10 @@
         skills: "Stack & technologies", experience: "Professional path",
         education: "Academic background", projects: "Featured projects",
         certs: "Certifications", contact: "How to reach me", social: "My networks",
-        resume: "Download / view CV", goals: "Where I'm going", now: "What I'm up to now",
+        resume: "Download / view CV", blog: "Blog · notes & articles",
+        goals: "Where I'm going", now: "What I'm up to now",
         recommendations: "What people say about me", photo: "Gallery", theme: "Change color theme",
-        stats: "GitHub stats", sound: "Typing sound (on/off)", pong: "Mini-game 🎮", lang: "Language ES/EN",
+        stats: "GitHub stats", visits: "Site visits", sound: "Typing sound (on/off)", pong: "Mini-game 🎮", lang: "Language ES/EN",
         banner: "Show the ASCII banner", clear: "Clear the screen", help: "This help",
       },
       chips: [
@@ -299,7 +307,7 @@
   const t = () => UI[lang];
 
   const link = (url: string, label?: string) =>
-    `<a href="${url}" target="_blank" rel="noopener">${label ?? url}</a>`;
+    `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label ?? esc(url)}</a>`;
 
   
   
@@ -333,8 +341,14 @@
         fetch(`https://api.github.com/users/${GH_USER}/repos?per_page=100&type=owner&sort=pushed`, { headers }),
       ]);
       if (!uRes.ok || !rRes.ok) return null;
-      const u: any = await uRes.json();
-      const repos: any[] = await rRes.json();
+      const u = (await uRes.json()) as {
+        login: string; name: string | null; followers: number;
+        public_repos: number; created_at: string;
+      };
+      const repos = (await rRes.json()) as {
+        name: string; fork: boolean; language: string | null;
+        stargazers_count: number; html_url: string;
+      }[];
       if (!Array.isArray(repos)) return null;
       const own = repos.filter((r) => !r.fork);
       const totalStars = own.reduce((s, r) => s + (r.stargazers_count || 0), 0);
@@ -366,7 +380,7 @@
     const S = t().stats;
     const maxL = Math.max(1, ...s.topLanguages.map((l) => l.count));
     const langs = s.topLanguages.map((l) =>
-      `<div class="gh-lang"><span class="gh-lang-name">${esc(l.name)}</span><span class="gh-bar"><span style="width:${Math.round((l.count / maxL) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`
+      `<div class="gh-lang"><span class="gh-lang-name">${esc(l.name)}</span><span class="gh-bar" aria-hidden="true"><span style="width:${Math.round((l.count / maxL) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`
     ).join("");
     const topRepo = s.topRepo ? `${link(s.topRepo.url, esc(s.topRepo.name))} <span class="dim">★ ${s.topRepo.stars}</span>` : "—";
     return `<div class="gh-stats">
@@ -394,8 +408,8 @@
         const groups: [string, string[]][] = [
           [cats.about, ["whoami", "about", "now", "goals"]],
           [cats.work, ["skills", "experience", "education", "projects", "certs", "recommendations", "stats"]],
-          [cats.connect, ["contact", "social", "resume"]],
-          [cats.terminal, ["theme", "sound", "lang", "pong", "clear"]],
+          [cats.connect, ["contact", "social", "resume", "blog"]],
+          [cats.terminal, ["theme", "sound", "lang", "visits", "pong", "clear"]],
         ];
         let html = '<div class="help-cats">';
         for (const [label, cmds] of groups) {
@@ -429,7 +443,7 @@
         spacer();
         printHTML(
           `<div class="photo-row">
-             <div class="photo-slot"><img class="lb" data-gallery="me" data-caption="Juan Felipe Rodríguez Galindo" src="${P.avatar}" alt="foto" onerror="this.parentElement.innerHTML='[ tu_foto.png ]<br>160x160'"></div>
+             <div class="photo-slot"><img class="lb" data-gallery="me" data-caption="Juan Felipe Rodríguez Galindo" src="${P.avatar}" alt="Retrato de Juan Felipe Rodríguez Galindo" onerror="this.parentElement.innerHTML='[ tu_foto.png ]<br>160x160'"></div>
              <figure class="photo-slot photo-wide"><img class="lb" data-gallery="me" data-caption="SLUD XXII — charla &quot;El futuro de Linux&quot; (ex-Director del GLUD)" src="/assets/photos/glud-talk.jpg" alt="charla SLUD" onerror="this.parentElement.innerHTML='[ conferencia ]'"></figure>
            </div>`
         );
@@ -490,6 +504,36 @@
           }
           scrollDown();
         }
+      },
+    },
+
+    visits: {
+      desc: "Visitas al sitio",
+      run: async () => {
+        print(
+          lang === "en"
+            ? "// visits — via GoatCounter (open source analytics, no cookies)"
+            : "// visitas — vía GoatCounter (analítica open source, sin cookies)",
+          "dim"
+        );
+        const unavailable =
+          lang === "en"
+            ? "couldn't load the visit count right now 😅 try again later."
+            : "no pude cargar el contador ahora mismo 😅 inténtalo más tarde.";
+        try {
+          const r = await fetch("https://juferoga.goatcounter.com/counter/TOTAL.json");
+          const d = r.ok ? await r.json() : null;
+          if (d?.count) {
+            const n = esc(String(d.count).trim());
+            print(`👀 ${lang === "en" ? "visits to this site" : "visitas a este sitio"}: ${n}`, "bright");
+            print(lang === "en" ? "thanks for being one of them 💚" : "gracias por ser una de ellas 💚", "accent");
+          } else {
+            print(unavailable, "dim");
+          }
+        } catch {
+          print(unavailable, "dim");
+        }
+        scrollDown();
       },
     },
 
@@ -606,6 +650,20 @@
       },
     },
 
+    blog: {
+      desc: "Blog · notas y artículos",
+      run: () => {
+        print(lang === "en" ? "// blog — notes & articles" : "// blog — notas y artículos", "dim");
+        let posts: { title: string; url: string; date: string }[] = [];
+        try { posts = JSON.parse(document.getElementById("blog-posts-build")?.textContent || "[]"); } catch {}
+        for (const p of posts) {
+          print(`→ ${link(p.url, esc(p.title))} <span class="dim">${esc(p.date)}</span>`);
+        }
+        print("");
+        print("📚 " + link("/blog", lang === "en" ? "all posts" : "todos los artículos") + " · " + link("/rss.xml", "RSS"), "accent");
+      },
+    },
+
     photo: {
       desc: "Galería",
       run: () => {
@@ -622,7 +680,7 @@
 
     banner: {
       desc: "Banner ASCII",
-      run: () => print(esc(BANNER), "ascii"),
+      run: () => { print(esc(BANNER), "ascii"); },
     },
 
     theme: {
@@ -832,11 +890,11 @@
       },
     },
 
-    pwd: { desc: "", hidden: true, run: () => print("/home/juferoga/passion/open-source", "accent") },
-    date: { desc: "", hidden: true, run: () => print(new Date().toString(), "accent") },
-    echo: { desc: "", hidden: true, run: (a) => print(esc(a.join(" "))) },
-    vim: { desc: "", hidden: true, run: () => print("E: para salir de vim, reinicia el universo. (:q! tampoco funciona aquí 😎)", "warn") },
-    exit: { desc: "", hidden: true, run: () => print("No puedes irte, apenas estás conociéndome 😏", "warn") },
+    pwd: { desc: "", hidden: true, run: () => { print("/home/juferoga/passion/open-source", "accent"); } },
+    date: { desc: "", hidden: true, run: () => { print(new Date().toString(), "accent"); } },
+    echo: { desc: "", hidden: true, run: (a) => { print(esc(a.join(" "))); } },
+    vim: { desc: "", hidden: true, run: () => { print("E: para salir de vim, reinicia el universo. (:q! tampoco funciona aquí 😎)", "warn"); } },
+    exit: { desc: "", hidden: true, run: () => { print("No puedes irte, apenas estás conociéndome 😏", "warn"); } },
     hack: {
       desc: "",
       hidden: true,
@@ -869,8 +927,8 @@
         if (n === 0) print("\npista: escribe 'clear' y luego 'ls' 😉", "dim");
       },
     },
-    linux: { desc: "", hidden: true, run: () => print("🐧 'I'd just like to interject for a moment...' — GNU/Linux forever.", "accent") },
-    ai: { desc: "", hidden: true, run: () => print("🤖 La IA es mi siguiente frontera. Construyendo el futuro, un prompt a la vez.", "accent") },
+    linux: { desc: "", hidden: true, run: () => { print("🐧 'I'd just like to interject for a moment...' — GNU/Linux forever.", "accent"); } },
+    ai: { desc: "", hidden: true, run: () => { print("🤖 La IA es mi siguiente frontera. Construyendo el futuro, un prompt a la vez.", "accent"); } },
 
     glud: {
       desc: "",
@@ -1002,8 +1060,8 @@
       desc: "",
       hidden: true,
       run: () => {
-        if (!history.length) { print("(historial vacío)", "dim"); return; }
-        history.slice(-15).forEach((h, i) => print(`  ${i + 1}  ${esc(h)}`, "dim"));
+        if (!cmdHistory.length) { print("(historial vacío)", "dim"); return; }
+        cmdHistory.slice(-15).forEach((h, i) => print(`  ${i + 1}  ${esc(h)}`, "dim"));
       },
     },
 
@@ -1052,6 +1110,12 @@
     "game": "pong",
     "juego": "pong",
     "play": "pong",
+    "posts": "blog",
+    "articulos": "blog",
+    "artículos": "blog",
+    "visitas": "visits",
+    "views": "visits",
+    "contador": "visits",
   };
 
   
@@ -1093,6 +1157,14 @@
 
   
   
+  // Evento anónimo para GoatCounter (no-op si la analítica no está cargada, p.ej. en dev)
+  function track(path: string) {
+    try {
+      const gc = (window as any).goatcounter;
+      if (gc?.count) gc.count({ path, title: path, event: true });
+    } catch {}
+  }
+
   async function execute(raw: string) {
     const trimmed = raw.trim();
     const echo = document.createElement("div");
@@ -1113,10 +1185,12 @@
 
     spacer();
     if (cmd) {
+      track(`cmd-${key}`);
       await cmd.run(args);
       registerComboStep(key);
       lastCmdKey = key;
     } else {
+      track("cmd-not-found");
       print(t().notFound(esc(name)), "error");
       const candidates = [...PUBLIC_CMDS, ...Object.keys(ALIASES)];
       let best = "", bestD = Infinity;
@@ -1137,7 +1211,8 @@
 
   
   
-  const history: string[] = [];
+  // "cmdHistory" y no "history" para no ocultar window.history
+  const cmdHistory: string[] = [];
   let histIdx = -1;
 
   const PUBLIC_CMDS = Object.keys(COMMANDS).filter((k) => !COMMANDS[k].hidden);
@@ -1186,8 +1261,8 @@
       beep(360, 28); // "intro" más grave
       const val = cmdInput.value;
       if (val.trim()) {
-        history.push(val);
-        histIdx = history.length;
+        cmdHistory.push(val);
+        histIdx = cmdHistory.length;
       }
       setValue("");
       hideHint();
@@ -1196,15 +1271,15 @@
       e.preventDefault();
       if (histIdx > 0) {
         histIdx--;
-        setValue(history[histIdx] ?? "");
+        setValue(cmdHistory[histIdx] ?? "");
       }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (histIdx < history.length - 1) {
+      if (histIdx < cmdHistory.length - 1) {
         histIdx++;
-        setValue(history[histIdx] ?? "");
+        setValue(cmdHistory[histIdx] ?? "");
       } else {
-        histIdx = history.length;
+        histIdx = cmdHistory.length;
         setValue("");
       }
     } else if (e.key === "Tab") {
@@ -1250,6 +1325,7 @@
 
   function updateSoundBtn() {
     soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    soundBtn.setAttribute("aria-pressed", String(soundOn));
   }
   updateSoundBtn();
 
@@ -1364,6 +1440,7 @@
   async function startTour() {
     if (tourActive) return;
     tourActive = true;
+    track("tour");
     hideHint();
     if (document.body.classList.contains("gui-active")) setGui(false);
     window.addEventListener("keydown", tourEscape);
@@ -1394,9 +1471,12 @@
   function setGui(on: boolean) {
     document.body.classList.toggle("gui-active", on);
     document.documentElement.classList.toggle("gui-active", on);
+    // solo un <main> visible a la vez (HTML válido + landmark único para AT)
+    terminalEl.toggleAttribute("hidden", on);
+    guiEl.toggleAttribute("hidden", !on);
     guiBtn.textContent = on ? "⌨ terminal" : "🖥 visual";
     guiBtn.title = on ? "Volver a la terminal" : "Cambiar a versión visual";
-    if (on) { window.scrollTo(0, 0); }
+    if (on) { track("gui-visual"); window.scrollTo(0, 0); }
     else { focusInput(); }
   }
   guiBtn.addEventListener("click", () => {
@@ -1444,7 +1524,7 @@
       seeGh: isEN ? "view on GitHub ↗" : "ver en GitHub ↗",
     };
     const social = (s: typeof pr.socials[number]) =>
-      `<a href="${s.url}" target="_blank" rel="noopener" title="${e(s.name)}"><span>${s.icon}</span> ${e(s.name)}</a>`;
+      `<a href="${s.url}" target="_blank" rel="noopener noreferrer" title="${e(s.name)}"><span>${s.icon}</span> ${e(s.name)}</a>`;
     return `
       <header class="gui-hero">
         <img class="gui-avatar lb" data-gallery="gui" data-caption="${e(pr.name)}" src="${pr.avatar}" alt="${e(pr.name)}" loading="lazy" onerror="this.style.display='none'" />
@@ -1455,8 +1535,9 @@
           <p class="gui-loc">📍 ${e(pr.location)}</p>
           <blockquote class="gui-quote">“${e(pr.tagline)}”</blockquote>
           <div class="gui-actions">
-            <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "en" : "es"}.pdf" target="_blank" rel="noopener">📄 ${H.talk}</a>
-            <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "es" : "en"}.pdf" target="_blank" rel="noopener">📄 CV (${isEN ? "ES" : "EN"})</a>
+            <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "en" : "es"}.pdf" target="_blank" rel="noopener noreferrer">📄 ${H.talk}</a>
+            <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "es" : "en"}.pdf" target="_blank" rel="noopener noreferrer">📄 CV (${isEN ? "ES" : "EN"})</a>
+            <a class="gui-btn" href="/blog">📝 Blog</a>
             <button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button>
           </div>
           <div class="gui-socials">${pr.socials.map(social).join("")}</div>
@@ -1473,7 +1554,7 @@
         pr.experience.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.role)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.company)}</div><p>${e(x.lines.join(" "))}</p></div>`).join("")
       }</div></section>
       <section class="gui-section"><h2>${H.proj}</h2><div class="gui-cards">${
-        pr.projects.map((p) => `<a class="gui-card" href="${p.url}" target="_blank" rel="noopener"><h3>${e(p.name)}</h3><span class="gui-card-tech">${e(p.tech)}</span><p>${e(p.desc)}</p><span class="gui-card-link">${H.seeGh}</span></a>`).join("")
+        pr.projects.map((p) => `<a class="gui-card" href="${p.url}" target="_blank" rel="noopener noreferrer"><h3>${e(p.name)}</h3><span class="gui-card-tech">${e(p.tech)}</span><p>${e(p.desc)}</p><span class="gui-card-link">${H.seeGh}</span></a>`).join("")
       }</div></section>
       <section class="gui-section"><h2>${H.gallery}</h2><div class="gui-gallery">${
         pr.gallery.map((g) => `<figure><img class="lb" data-gallery="work" data-caption="${e(g.caption)}" src="${g.src}" alt="${e(g.caption)}" loading="lazy" /><figcaption>${e(g.caption)}</figcaption></figure>`).join("")
@@ -1482,7 +1563,7 @@
         const g = buildStats();
         if (!g) return "";
         const mx = Math.max(1, ...g.topLanguages.map((l) => l.count));
-        const langs = g.topLanguages.map((l) => `<div class="gh-lang"><span class="gh-lang-name">${e(l.name)}</span><span class="gh-bar"><span style="width:${Math.round((l.count / mx) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`).join("");
+        const langs = g.topLanguages.map((l) => `<div class="gh-lang"><span class="gh-lang-name">${e(l.name)}</span><span class="gh-bar" aria-hidden="true"><span style="width:${Math.round((l.count / mx) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`).join("");
         return `<section class="gui-section"><h2>GitHub</h2><div class="gh-stats">
           <div class="gh-grid">
             <div class="gh-stat"><span class="gh-num">${g.publicRepos}</span><span class="gh-lbl">${H.ghRepos}</span></div>
@@ -1491,7 +1572,7 @@
             <div class="gh-stat"><span class="gh-num">${g.createdYear}</span><span class="gh-lbl">${H.ghSince}</span></div>
           </div>
           <div class="gh-langs"><div class="gh-sub">${H.ghLangs}</div>${langs}</div>
-          <p><a href="https://github.com/${e(g.login)}" target="_blank" rel="noopener">github.com/${e(g.login)} ↗</a></p>
+          <p><a href="https://github.com/${e(g.login)}" target="_blank" rel="noopener noreferrer">github.com/${e(g.login)} ↗</a></p>
         </div></section>`;
       })()}
       <section class="gui-section"><h2>${H.edu}</h2><div class="gui-timeline">${
@@ -1502,7 +1583,7 @@
         pr.testimonials.map((tt) => `<blockquote class="gui-testimonial"><p>“${e(tt.quote)}”</p><footer><strong>${e(tt.name)}</strong><span>${e(tt.role)}</span></footer></blockquote>`).join("")
       }</div></section>
       <section class="gui-section gui-contact"><h2>${H.hablemos}</h2><p><a href="mailto:${e(pr.contact.email)}">✉️ ${e(pr.contact.email)}</a></p>
-        <div class="gui-socials">${pr.socials.map((s) => `<a href="${s.url}" target="_blank" rel="noopener"><span>${s.icon}</span> ${e(s.handle)}</a>`).join("")}</div></section>
+        <div class="gui-socials">${pr.socials.map((s) => `<a href="${s.url}" target="_blank" rel="noopener noreferrer"><span>${s.icon}</span> ${e(s.handle)}</a>`).join("")}</div></section>
       <footer class="gui-footer"><span>“${e(pr.tagline)}”</span><button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button><span class="dim">juferoga.pro</span></footer>`;
   }
 
@@ -1875,7 +1956,6 @@
     bx.globalAlpha = 1; bx.shadowBlur = 0;
   }
 
-  let bgRAF = 0;
   function bgLoop() {
     bx.clearRect(0, 0, bw, bh);
     const color = themeColor();
@@ -1894,7 +1974,7 @@
       const tr = terminalEl.getBoundingClientRect();
       if (tr.width && tr.height) bx.clearRect(tr.left, tr.top, tr.width, tr.height);
     }
-    bgRAF = requestAnimationFrame(bgLoop);
+    requestAnimationFrame(bgLoop);
   }
   if (!reduceMotion) bgLoop();
 
@@ -1906,6 +1986,7 @@
   const lbCount = $("#lb-count") as HTMLElement;
   let lbItems: { src: string; caption: string }[] = [];
   let lbIdx = 0;
+  let lbLastFocus: HTMLElement | null = null;
 
   function lbShow() {
     const it = lbItems[lbIdx];
@@ -1922,9 +2003,16 @@
     lbShow();
     lb.classList.add("open");
     lb.setAttribute("aria-hidden", "false");
+    lbLastFocus = document.activeElement as HTMLElement | null;
+    ($(".lb-close") as HTMLButtonElement).focus();
     beep(620, 22);
   }
-  function lbClose() { lb.classList.remove("open"); lb.setAttribute("aria-hidden", "true"); focusInput(); }
+  function lbClose() {
+    lb.classList.remove("open");
+    lb.setAttribute("aria-hidden", "true");
+    if (lbLastFocus && lbLastFocus !== document.body && document.contains(lbLastFocus)) lbLastFocus.focus();
+    else focusInput();
+  }
   function lbNav(d: number) { if (lbItems.length < 2) return; lbIdx = (lbIdx + d + lbItems.length) % lbItems.length; lbShow(); beep(660, 14); }
 
   lb.addEventListener("click", (e) => {
@@ -1938,6 +2026,17 @@
     if (e.key === "Escape") lbClose();
     else if (e.key === "ArrowLeft") lbNav(-1);
     else if (e.key === "ArrowRight") lbNav(1);
+    else if (e.key === "Tab") {
+      // foco atrapado dentro del diálogo mientras está abierto
+      const focusables = Array.from(
+        lb.querySelectorAll<HTMLElement>("button:not([style*='display: none'])")
+      ).filter((b) => b.offsetParent !== null);
+      if (!focusables.length) return;
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !lb.contains(active))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (active === last || !lb.contains(active))) { e.preventDefault(); first.focus(); }
+    }
   });
   document.addEventListener("click", (e) => {
     const img = (e.target as HTMLElement).closest("img.lb") as HTMLImageElement | null;
@@ -1980,7 +2079,7 @@
     printHTML(
       `<div class="hero">
          <pre class="line ascii hero-banner">${esc(BANNER)}</pre>
-         <div class="hero-photo"><img src="${P.avatar}" alt="Juan Felipe"
+         <div class="hero-photo"><img src="${P.avatar}" alt="Retrato de Juan Felipe Rodríguez Galindo"
            onerror="this.parentElement.innerHTML='[ foto ]'"></div>
        </div>`
     );

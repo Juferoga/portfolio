@@ -1,0 +1,29 @@
+# juferoga.pro — Juan Felipe Rodríguez Galindo
+
+> Portafolio personal de Juan Felipe Rodríguez Galindo (juferoga): Especialista
+> en Desarrollo de Software e Ingeniero de Sistemas, Cloud Developer en el
+> Banco de Bogotá (Bogotá, Colombia). Backend escalable (Java/Spring Boot,
+> Python/Django, Node.js), arquitectura de microservicios, AWS e IA aplicada
+> al desarrollo. Ex-Director del Grupo GNU/Linux de la Universidad Distrital
+> (GLUD) y apasionado por el software libre.
+
+El sitio es un portafolio interactivo con estética de terminal: el visitante
+escribe comandos (`help`, `about`, `skills`, `projects`…) para explorar el
+perfil. También hay una versión visual convencional.
+
+## Páginas
+
+- [Inicio / portafolio interactivo](https://juferoga.pro/): perfil completo — experiencia, habilidades, proyectos, educación, certificaciones y contacto
+- [Blog](https://juferoga.pro/blog): notas sobre cloud, backend, IA aplicada y software libre
+- [RSS](https://juferoga.pro/rss.xml): feed del blog
+
+## Recursos
+
+- [CV en español (PDF)](https://juferoga.pro/cv/JuanFelipeRodriguez_CV_es.pdf)
+- [CV in English (PDF)](https://juferoga.pro/cv/JuanFelipeRodriguez_CV_en.pdf)
+- [GitHub](https://github.com/Juferoga)
+- [LinkedIn](https://www.linkedin.com/in/juferoga)
+
+## Contacto
+
+- Email: juferoga@gmail.com

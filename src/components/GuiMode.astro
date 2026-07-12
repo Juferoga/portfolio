@@ -14,12 +14,13 @@ for (const l of P.about) {
 if (cur.length) aboutParas.push(cur.join(" "));
 ---
 
-<section class="gui" id="gui" aria-label="Versión visual del portafolio">
+<!-- Un solo <main> visible a la vez: la terminal o esta vista (atributo hidden conmutado por JS). -->
+<main class="gui" id="gui" aria-label="Versión visual del portafolio" hidden>
   <div class="gui-inner">
     
     <header class="gui-hero">
-      <img class="gui-avatar lb" data-gallery="gui" data-caption={P.name} src={P.avatar} alt={P.name} loading="lazy"
-        onerror="this.style.display='none'" />
+      <img class="gui-avatar lb" data-gallery="gui" data-caption={P.name} src={P.avatar} alt={`Retrato de ${P.name}`}
+        width="631" height="700" loading="lazy" onerror="this.style.display='none'" />
       <div class="gui-hero-text">
         <h1 class="gui-name">{P.name}</h1>
         <p class="gui-role">{P.role}</p>
@@ -27,13 +28,14 @@ if (cur.length) aboutParas.push(cur.join(" "));
         <p class="gui-loc">📍 {P.location}</p>
         <blockquote class="gui-quote">“{P.tagline}”</blockquote>
         <div class="gui-actions">
-          <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_es.pdf" target="_blank" rel="noopener">📄 Descargar CV</a>
-          <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_en.pdf" target="_blank" rel="noopener">📄 CV (EN)</a>
+          <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_es.pdf" target="_blank" rel="noopener noreferrer">📄 Descargar CV</a>
+          <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_en.pdf" target="_blank" rel="noopener noreferrer">📄 CV (EN)</a>
+          <a class="gui-btn" href="/blog">📝 Blog</a>
           <button class="gui-btn gui-back" data-gui-back type="button">⌨ Versión terminal</button>
         </div>
         <div class="gui-socials">
           {P.socials.map((s) => (
-            <a href={s.url} target="_blank" rel="noopener" title={s.name}>
+            <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.name}>
               <span>{s.icon}</span> {s.name}
             </a>
           ))}
@@ -46,7 +48,8 @@ if (cur.length) aboutParas.push(cur.join(" "));
       {aboutParas.map((p) => <p>{p}</p>)}
       <figure class="gui-figure">
         <img class="lb" data-gallery="gui" data-caption='SLUD XXII — charla "El futuro de Linux", como ex-Director del GLUD 🐧'
-          src="/assets/photos/glud-talk.jpg" alt="Juan Felipe presentando en el SLUD XXII" loading="lazy" />
+          src="/assets/photos/glud-talk.jpg" alt="Juan Felipe presentando en el SLUD XXII"
+          width="1000" height="755" loading="lazy" />
         <figcaption>SLUD XXII — charla “El futuro de Linux”, como ex-Director del GLUD 🐧</figcaption>
       </figure>
     </section>
@@ -90,7 +93,7 @@ if (cur.length) aboutParas.push(cur.join(" "));
       <h2>Proyectos</h2>
       <div class="gui-cards">
         {P.projects.map((pr) => (
-          <a class="gui-card" href={pr.url} target="_blank" rel="noopener">
+          <a class="gui-card" href={pr.url} target="_blank" rel="noopener noreferrer">
             <h3>{pr.name}</h3>
             <span class="gui-card-tech">{pr.tech}</span>
             <p>{pr.desc}</p>
@@ -127,12 +130,12 @@ if (cur.length) aboutParas.push(cur.join(" "));
             {stats.topLanguages.map((l) => (
               <div class="gh-lang">
                 <span class="gh-lang-name">{l.name}</span>
-                <span class="gh-bar"><span style={`width:${Math.round((l.count / maxL) * 100)}%`}></span></span>
+                <span class="gh-bar" aria-hidden="true"><span style={`width:${Math.round((l.count / maxL) * 100)}%`}></span></span>
                 <span class="gh-lang-n">{l.count}</span>
               </div>
             ))}
           </div>
-          <p><a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener">github.com/{stats.login} ↗</a></p>
+          <p><a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener noreferrer">github.com/{stats.login} ↗</a></p>
         </div>
       </section>
     )}
@@ -178,7 +181,7 @@ if (cur.length) aboutParas.push(cur.join(" "));
       </p>
       <div class="gui-socials">
         {P.socials.map((s) => (
-          <a href={s.url} target="_blank" rel="noopener"><span>{s.icon}</span> {s.handle}</a>
+          <a href={s.url} target="_blank" rel="noopener noreferrer"><span>{s.icon}</span> {s.handle}</a>
         ))}
       </div>
     </section>
@@ -189,4 +192,4 @@ if (cur.length) aboutParas.push(cur.join(" "));
       <span class="dim">juferoga.pro</span>
     </footer>
   </div>
-</section>
+</main>
