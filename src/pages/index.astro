@@ -119,22 +119,6 @@ const jsonLd = {
         } catch (e) {}
       })();
     </script>
-    <style>
-      /* Antes de que el JS arranque: en móvil ocultamos la terminal y mostramos la
-         versión visual directamente. Al inicializarse, el JS quita .prefer-gui y pasa
-         a gestionar la visibilidad con [hidden] + .gui-active (permite volver a la
-         terminal desde el botón). */
-      html.prefer-gui .terminal,
-      html.prefer-gui #bg-canvas,
-      html.prefer-gui #matrix-canvas,
-      html.prefer-gui .crt-overlay,
-      html.prefer-gui .scanlines,
-      html.prefer-gui .flicker,
-      html.prefer-gui .hint { display: none !important; }
-      html.prefer-gui #gui { display: block !important; }
-      html.prefer-gui,
-      html.prefer-gui body { overflow-y: auto !important; height: auto !important; }
-    </style>
     <noscript>
       <style>
         /* Sin JavaScript la terminal no funciona: se muestra la versión visual (SSR). */

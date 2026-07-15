@@ -540,6 +540,23 @@ figure.photo-slot { margin: 0; }
 .inline-btn:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 12px var(--glow); }
 
 .gui { display: none; }
+
+/* Móvil: la versión visual es la puerta de entrada (decisión de arquitectura;
+   ver index.astro). .prefer-gui lo fija un script inline en <head> antes del
+   primer paint para no mostrar un flash de la terminal. Al arrancar, el JS quita
+   .prefer-gui y pasa a gestionar la visibilidad con [hidden] + .gui-active
+   (así se puede volver a la terminal). Debe vivir en el CSS global: si estuviera
+   en un <style> de .astro, Astro lo scopearía y no alcanzaría a .terminal/.gui. */
+html.prefer-gui .terminal,
+html.prefer-gui .hint,
+html.prefer-gui #bg-canvas,
+html.prefer-gui #matrix-canvas,
+html.prefer-gui .crt-overlay,
+html.prefer-gui .scanlines,
+html.prefer-gui .flicker { display: none !important; }
+html.prefer-gui .gui { display: block !important; position: relative; z-index: 10; }
+html.prefer-gui, html.prefer-gui body { overflow-y: auto !important; height: auto !important; }
+
 html.gui-active, body.gui-active {
   overflow-y: auto; height: auto;
   scrollbar-width: thin;
