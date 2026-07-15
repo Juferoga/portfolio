@@ -103,6 +103,38 @@ const jsonLd = {
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <!--
+      Decisión de arquitectura: en móvil la terminal confunde a mucha gente, así que
+      la puerta de entrada es la versión visual (blog, consola y todo sigue accesible
+      desde ahí). Detectamos temprano y marcamos <html> antes del primer paint para
+      no mostrar un flash de la terminal; el JS de la terminal luego toma el control.
+    -->
+    <script is:inline>
+      (function () {
+        try {
+          var coarse = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+          var narrow = window.matchMedia("(max-width: 760px)").matches;
+          if (coarse || narrow) document.documentElement.classList.add("prefer-gui");
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* Antes de que el JS arranque: en móvil ocultamos la terminal y mostramos la
+         versión visual directamente. Al inicializarse, el JS quita .prefer-gui y pasa
+         a gestionar la visibilidad con [hidden] + .gui-active (permite volver a la
+         terminal desde el botón). */
+      html.prefer-gui .terminal,
+      html.prefer-gui #bg-canvas,
+      html.prefer-gui #matrix-canvas,
+      html.prefer-gui .crt-overlay,
+      html.prefer-gui .scanlines,
+      html.prefer-gui .flicker,
+      html.prefer-gui .hint { display: none !important; }
+      html.prefer-gui #gui { display: block !important; }
+      html.prefer-gui,
+      html.prefer-gui body { overflow-y: auto !important; height: auto !important; }
+    </style>
     <noscript>
       <style>
         /* Sin JavaScript la terminal no funciona: se muestra la versión visual (SSR). */

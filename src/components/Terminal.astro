@@ -2127,5 +2127,18 @@
     scrollDown();
   }
 
+  // En móvil abrimos la versión visual directamente (ver .prefer-gui en index.astro):
+  // la terminal confunde a muchos, pero sigue a un toque y todo (blog, consola…) queda
+  // accesible desde la vista visual. Arrancamos la terminal instantánea y en segundo
+  // plano para que esté lista cuando el usuario pulse "Versión terminal".
+  const preferGui = document.documentElement.classList.contains("prefer-gui");
+  if (preferGui) {
+    skipBoot = true;
+    setGui(true);
+    // El JS ya gestiona la visibilidad con [hidden] + .gui-active; soltamos el
+    // guard de CSS para que se pueda volver a la terminal desde el botón.
+    document.documentElement.classList.remove("prefer-gui");
+  }
+
   boot();
 </script>
