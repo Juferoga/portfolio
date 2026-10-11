@@ -3,6 +3,7 @@ import { getCollection, render, type CollectionEntry } from "astro:content";
 import BlogLayout from "../../layouts/BlogLayout.astro";
 import L from "../../components/L.astro";
 import { readingMinutes } from "../../utils/reading";
+import "../../styles/collab-a11ypro.css";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
@@ -27,6 +28,14 @@ const fmt = (d: Date, locale: "es-CO" | "en-US" = "es-CO") =>
   d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 // título en inglés cuando existe (el cuerpo del artículo sigue en español)
 const titleEn = (p: CollectionEntry<"blog">) => p.data.titleEn ?? p.data.title;
+
+// Tema de colaboración: el post adopta el estilo del sitio aliado (cielo estrellado de A11Y PRO).
+const theme = post.data.theme;
+// destellos ✦ en posiciones fijas (deterministas: mismo HTML en cada build)
+const SPARKS = [
+  [4, 14, 0], [92, 9, 1.2], [88, 31, 2.4], [7, 46, 0.8], [95, 58, 3.1],
+  [3, 74, 1.9], [90, 86, 0.4], [12, 24, 2.8], [94, 40, 1.5], [6, 92, 3.6],
+] as const; // pegados a los bordes: nunca encima de la columna de lectura
 ---
 
 <BlogLayout
@@ -36,10 +45,24 @@ const titleEn = (p: CollectionEntry<"blog">) => p.data.titleEn ?? p.data.title;
   publishedDate={post.data.date}
   section="blog"
   narrow
+  bodyClass={theme ? `collab collab-${theme}` : ""}
 >
+  {theme === "a11ypro" && (
+    <div class="collab-sky" aria-hidden="true">
+      <span class="collab-nebula collab-nebula-a"></span>
+      <span class="collab-nebula collab-nebula-b"></span>
+      <span class="collab-shooting"></span>
+      {SPARKS.map(([x, y, d]) => <span class="collab-spark" style={`left:${x}%;top:${y}%;animation-delay:${d}s`}>✦</span>)}
+    </div>
+  )}
   <article>
     <header class="page-head">
       <span class="page-kicker"><a href="/blog/">← ~/blog</a></span>
+      {theme === "a11ypro" && (
+        <a class="collab-badge" href="https://a11ypro.tech" target="_blank" rel="noopener noreferrer">
+          <span aria-hidden="true">✦</span> <L es="Colaboración con A11Y PRO" en="A collaboration with A11Y PRO" />
+        </a>
+      )}
       <h1 class="page-title post-title"><L es={post.data.title} en={titleEn(post)} /></h1>
       <p class="post-meta">
         <time datetime={post.data.date.toISOString()}><L es={fmt(post.data.date)} en={fmt(post.data.date, "en-US")} /></time>

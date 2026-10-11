@@ -7,6 +7,7 @@ date: 2026-10-11
 tags: ["angular", "accesibilidad", "a11y", "wcag", "frontend"]
 lang: es
 draft: false
+theme: a11ypro
 ---
 
 <!--

@@ -15,9 +15,11 @@ interface Props {
   section?: "blog" | "timeline";
   /** Ancho de lectura (artículos) en vez del ancho completo */
   narrow?: boolean;
+  /** Clase extra para <body> (temas de posts colaborativos) */
+  bodyClass?: string;
 }
 
-const { title, description, path, publishedDate, section = "blog", narrow = false } = Astro.props;
+const { title, description, path, publishedDate, section = "blog", narrow = false, bodyClass = "" } = Astro.props;
 const NAV = [
   { href: "/?view=visual", es: "Inicio", en: "Home", key: "home" },
   { href: "/blog/", es: "Blog", en: "Blog", key: "blog" },
@@ -97,7 +99,7 @@ const jsonLd = publishedDate
     <link rel="manifest" href="/site.webmanifest" />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
-  <body class="site-page">
+  <body class:list={["site-page", bodyClass]}>
     <!-- mismo tema de color que eligió el visitante en la terminal / versión visual -->
     <script is:inline>
       try { var th = localStorage.getItem("theme"); if (th === "theme-amber" || th === "theme-cyber") document.body.classList.add(th); } catch (e) {}

@@ -12,6 +12,8 @@ const blog = defineCollection({
     tags: z.array(z.string()).default([]),
     lang: z.enum(["es", "en"]).default("es"),
     draft: z.boolean().default(false),
+    /** Tema visual opcional para posts colaborativos (p. ej. con el estilo del sitio aliado) */
+    theme: z.enum(["a11ypro"]).optional(),
   }),
 });
 
