@@ -1,6 +1,8 @@
 ---
 title: "el día cero: mi primer repo nació el mismo día que mi cuenta"
 description: "2018-2019: del SENA a la Universidad Distrital, los primeros ejercicios de C/C++ y la entrada al Grupo GNU/Linux."
+titleEn: "day zero: my first repo was born the same day as my account"
+descriptionEn: "2018-2019: from SENA to Universidad Distrital, my first C/C++ exercises and joining the GNU/Linux Group."
 date: 2026-07-14
 tags: ["origenes","c++","glud","universidad","software-libre"]
 lang: es

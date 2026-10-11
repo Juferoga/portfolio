@@ -1,6 +1,8 @@
 ---
 title: "git log --all: ocho años de commits contados como una historia"
 description: "Post introductorio de la serie: por qué convertí mi historial de GitHub y GitLab en una línea de tiempo interactiva y qué vas a encontrar en ella."
+titleEn: "git log --all: eight years of commits told as a story"
+descriptionEn: "The series intro: why I turned my GitHub and GitLab history into an interactive timeline and what you'll find in it."
 date: 2026-07-13
 tags: ["meta", "git", "timeline", "carrera"]
 lang: es
@@ -41,7 +43,7 @@ cuadritos verdes. Y para la otra mitad de mi vida —la de GitLab— tiré de la
 pública v4 con mi `user id 2806791`.
 
 El resultado no es un CV. Es una **línea de tiempo interactiva** que vive en
-[/timeline](/timeline), donde cada era tiene su color, sus repos y sus datos
+[/timeline](/timeline/), donde cada era tiene su color, sus repos y sus datos
 reales. Esta serie, "mi vida en git", es el recorrido comentado de esa línea.
 
 ## Las siete eras
@@ -98,7 +100,7 @@ posts van era por era, con los repos, las anécdotas y los números reales de ca
 una.
 
 Si quieres adelantarte y ver el mapa completo antes de leer los capítulos,
-pásate por [/timeline](/timeline) y navega las siete eras con tus propios ojos.
+pásate por [/timeline](/timeline/) y navega las siete eras con tus propios ojos.
 Ahí está todo, con `git` como única fuente de la verdad.
 
 ```bash

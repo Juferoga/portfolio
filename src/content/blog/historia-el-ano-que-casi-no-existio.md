@@ -1,6 +1,8 @@
 ---
 title: "2022: el año en que el grafo mintió"
 description: "Un año casi vacío en mi GitHub investigado como un caso: el sospechoso era la pereza, pero el culpable resultó ser un GitLab privado y un salón de clases."
+titleEn: "2022: the year the graph lied"
+descriptionEn: "An almost empty year on my GitHub, investigated like a case: the suspect was laziness, but the culprit turned out to be a private GitLab and a classroom."
 date: 2026-07-17
 tags: ["git", "gitlab", "carrera", "plot-twist"]
 lang: es
@@ -15,7 +17,7 @@ Cuarenta y uno. Ese es el número de commits de todo mi 2022 en GitHub. Para
 que se hagan una idea: 2019 tuvo 186, 2021 tuvo 173 y 2023 tuvo **380**. En el
 medio, como un valle entre montañas, un año que apenas hace ruido.
 
-Cuando revisé mi propio historial para armar la [línea de tiempo](/timeline) de
+Cuando revisé mi propio historial para armar la [línea de tiempo](/timeline/) de
 este portafolio, ese hueco me molestó. Un año no se apaga así porque sí. Y como
 buen sospechoso de mí mismo, me monté una teoría — y, como buen detective
 apurado, archivé el caso con la conclusión equivocada.

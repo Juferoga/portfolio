@@ -1,6 +1,8 @@
 ---
 title: "2023: 380 commits, jornada completa y el nacimiento de mi tesis"
 description: "El año pico de la carrera: full-time en el catastro, monitoría, materias en equipo y la semilla de una tesis que mezcla caos, redes neuronales y esteganografía de audio."
+titleEn: "2023: 380 commits, a full-time job and the birth of my thesis"
+descriptionEn: "The peak year of my degree: full-time at the cadastre, a teaching assistantship, team courses and the seed of a thesis mixing chaos, neural networks and audio steganography."
 date: 2026-07-18
 tags: ["tesis", "criptografia", "esteganografia", "full-stack", "catastro"]
 lang: es
@@ -43,7 +45,7 @@ Sumando: trabajo full-time + monitoría + tesis + materias, todo al tiempo. Un
 año casi sobrehumano. Que en medio de eso quedaran 380 commits, 29 PRs y 110
 issues en público me sigue pareciendo un milagro de gestión del tiempo (o de
 falta de sueño, según cómo lo mires). La foto completa está en el
-[/timeline](/timeline).
+[/timeline](/timeline/).
 
 ## El salto de calidad
 

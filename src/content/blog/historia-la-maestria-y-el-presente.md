@@ -1,6 +1,8 @@
 ---
 title: "2025-2026: del año más callado al ascenso en banca, con la maestría de fondo"
 description: "Un 2025 en silencio público mientras el banco me absorbía, seguido de un 2026 de ascenso a Analista de sistemas II, maestría en curso y esteganografía sobre difusión."
+titleEn: "2025-2026: from my quietest year to a promotion in banking, with a master's in the background"
+descriptionEn: "A publicly silent 2025 while the bank absorbed me, followed by a 2026 with a promotion to Systems Analyst II, a master's in progress and steganography on diffusion models."
 date: 2026-07-20
 tags: ["maestria", "ia", "banco", "cloud", "software-libre"]
 lang: es
@@ -122,7 +124,7 @@ pasé por el GLUD, por el catastro, por el IGAC, y termino —por ahora— como
 **Analista de sistemas II** en banca y maestrante escribiendo sobre difusión
 latente en un blog que también es una consola. De C++ básico a cloud financiero,
 sin soltar nunca el software libre. Si quieres ver el recorrido completo, está
-todo mapeado en [/timeline](/timeline).
+todo mapeado en [/timeline](/timeline/).
 
 El `git log` sigue abierto. Nos vemos en el próximo commit.
 

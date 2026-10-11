@@ -1,6 +1,8 @@
 ---
 title: "hola mundo: por qué mi portafolio es una terminal"
 description: "Primer post del blog. La historia detrás de este portafolio interactivo tipo terminal, hecho con Astro y sin frameworks de runtime."
+titleEn: "hello world: why my portfolio is a terminal"
+descriptionEn: "The blog's first post. The story behind this interactive terminal-style portfolio, built with Astro and no runtime frameworks."
 date: 2026-07-12
 tags: ["meta", "astro", "terminal"]
 lang: es

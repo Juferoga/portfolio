@@ -1,6 +1,8 @@
 ---
 title: "2024: el salto no fue de estudiante a la nube, fue del catastro a la banca"
 description: "Para 2024 ya llevaba dos años de desarrollador profesional; el verdadero salto fue cambiar el mundo catastral del IGAC por el cloud financiero del Banco de Bogotá."
+titleEn: "2024: the leap wasn't from student to cloud, it was from cadastre to banking"
+descriptionEn: "By 2024 I'd already been a professional developer for two years; the real leap was trading IGAC's cadastral world for Banco de Bogotá's financial cloud."
 date: 2026-07-19
 tags: ["banco-de-bogota", "igac", "catastro", "cloud", "carrera"]
 lang: es
@@ -23,7 +25,7 @@ La versión romántica dice que en 2024 pasé "de estudiante que sube tareas a
 tener un trabajo con la palabra *cloud* en el cargo". Suena bonito. Es falso.
 
 Para 2024 yo ya llevaba un buen rato de desarrollador **profesional**. Arranqué
-en la [Agencia Catastral de Cundinamarca](/timeline) a mediados de 2022 y me
+en la [Agencia Catastral de Cundinamarca](/timeline/) a mediados de 2022 y me
 quedé hasta finales de 2023: portales de trámites catastrales, internos y
 externos, Angular y Django dockerizados, CI/CD en GitLab. Todo ese trabajo vivió
 en repositorios privados institucionales — de ahí el famoso "hueco" en mi GitHub

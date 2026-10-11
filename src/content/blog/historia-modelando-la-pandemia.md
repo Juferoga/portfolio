@@ -1,6 +1,8 @@
 ---
 title: "2020: modelé la pandemia mientras el GLUD vivía su época dorada"
 description: "Cuarentena, ciencia de datos aplicada al COVID-19 en Colombia y el pico del ricing con temas de GRUB, arte en Krita y proyectos gnubies en equipo."
+titleEn: "2020: I modeled the pandemic while the GLUD lived its golden age"
+descriptionEn: "Lockdown, data science applied to COVID-19 in Colombia and peak ricing with GRUB themes, Krita art and team gnubie projects."
 date: 2026-07-15
 tags: ["pandemia", "data-science", "glud", "ricing", "software-libre"]
 lang: es

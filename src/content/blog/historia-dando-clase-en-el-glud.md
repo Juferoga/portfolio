@@ -1,6 +1,8 @@
 ---
 title: "2021: dirigí el glud, dicté clases de angular y armé un monopoly en java"
 description: "El año de universidad plena: dirección del GLUD, docencia comunitaria de Angular y Docker, la Academia Héroes Tech y el proyecto final más grande de la carrera."
+titleEn: "2021: I ran the glud, taught angular and built a monopoly in java"
+descriptionEn: "The year of full-on university life: leading GLUD, community teaching of Angular and Docker, the Héroes Tech Academy and the biggest final project of my degree."
 date: 2026-07-16
 tags: ["glud", "angular", "docker", "java", "devops"]
 lang: es
@@ -152,7 +154,7 @@ suyo y lo comparte de nuevo. El GLUD me enseñó eso antes que cualquier materia
 2021 fue movimiento puro: 173 commits, la dirección de un grupo, dos oficios
 distintos enseñando lo mismo, un Monopoly, un lenguaje raro y la primera línea de
 mi futuro cloud. Si querés ver cómo encaja todo esto en el mapa completo, está en
-la [/timeline](/timeline). En GitLab, mientras tanto, silencio absoluto: cero
+la [/timeline](/timeline/). En GitLab, mientras tanto, silencio absoluto: cero
 proyectos, cero commits, todo el año.
 
 Con toda esa inercia uno pensaría que 2022 vendría todavía más fuerte. Pues no.
