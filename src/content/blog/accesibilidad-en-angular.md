@@ -32,8 +32,8 @@ todo lo que hace falta para hacerlo bien desde el día uno; solo hay que saber d
 <!-- TODO-JF: anécdota del portal externo de la Agencia Catastral (normativas MinTIC / GOV.CO)
      y del intento de wrapper Angular para el UI Kit de GOV.CO. ¿Qué faltaba? ¿Qué aprendiste? -->
 
-Este post es la mitad técnica de una colaboración con **A11Y PRO**: aquí va el *cómo se
-construye* en Angular; allá, el *cómo se audita y valida* contra WCAG 2.2.
+Este post es la mitad técnica de una colaboración con **[A11Y PRO](https://a11ypro.tech)**: aquí va el
+*cómo se construye* en Angular; allá, el *cómo se audita y valida* contra WCAG 2.2.
 <!-- TODO-A11YPRO: enlace al post complementario -->
 
 ## El problema que Angular te crea (sin querer)
@@ -45,7 +45,8 @@ nueva y el título de la pestaña sigue diciendo lo mismo.
 
 Tres cosas resuelven el 80 % del problema:
 
-1. **Un título por ruta.** Angular lo soporta de forma nativa con la propiedad `title`:
+1. **Un título por ruta.** Angular lo soporta de forma nativa con la propiedad
+   [`title` de la ruta](https://angular.dev/api/router/Route):
 
 ```ts
 // app.routes.ts
@@ -83,7 +84,7 @@ lleve a ese mismo `<main>`.
 El error más caro que he visto en proyectos Angular es construir a mano un modal, un menú
 desplegable o unas pestañas con `<div (click)>`. Se ven bien, pero no se pueden usar con
 teclado y el lector de pantalla no sabe qué son. El paquete `@angular/cdk/a11y` resuelve las
-partes difíciles:
+partes difíciles ([documentación del CDK a11y](https://material.angular.dev/cdk/a11y/overview)):
 
 - **`cdkTrapFocus`**: atrapa el foco dentro de un diálogo mientras está abierto. Con
   `cdkTrapFocusAutoCapture` lo mueve adentro al abrir y lo devuelve al botón que lo abrió al
@@ -120,11 +121,11 @@ export class BuscadorComponent {
 ```
 
 Y si ya usas **Angular Material**, buena parte de esto viene incluido: sus componentes están
-construidos sobre el CDK y siguen los patrones de WAI-ARIA.
+construidos sobre el CDK y siguen los [patrones de WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/).
 
 ## HTML semántico primero, ARIA después
 
-La primera regla de ARIA es no usar ARIA si existe un elemento nativo que haga lo mismo. En
+La [primera regla de ARIA](https://www.w3.org/TR/using-aria/) es no usar ARIA si existe un elemento nativo que haga lo mismo. En
 plantillas Angular eso se traduce en:
 
 - `<button type="button">` para acciones, `<a>` (o `routerLink`) para navegación. Nunca un
@@ -146,21 +147,21 @@ plantillas Angular eso se traduce en:
 
 WCAG 2.2 añadió criterios que golpean justo a los patrones típicos de una app Angular:
 
-- **2.4.11 Foco no oculto (mínimo), nivel AA**: los *headers* fijos tapan el elemento
+- **[2.4.11 Foco no oculto (mínimo)](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html), nivel AA**: los *headers* fijos tapan el elemento
   enfocado al tabular. Se arregla con `scroll-padding-top` en el contenedor de scroll.
-- **2.5.8 Tamaño del objetivo (mínimo), nivel AA**: botones e íconos clicables de al menos
+- **[2.5.8 Tamaño del objetivo (mínimo)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), nivel AA**: botones e íconos clicables de al menos
   24×24 px (o con espacio suficiente alrededor).
-- **3.3.8 Autenticación accesible (mínimo), nivel AA**: nada de obligar a resolver acertijos
+- **[3.3.8 Autenticación accesible (mínimo)](https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html), nivel AA**: nada de obligar a resolver acertijos
   o a transcribir códigos sin permitir pegar o usar el gestor de contraseñas.
 
-Cómo auditar esto paso a paso es justo lo que cubre el post de A11Y PRO.
+Cómo auditar esto paso a paso es justo lo que cubre el post de [A11Y PRO](https://a11ypro.tech).
 <!-- TODO-A11YPRO: enlace -->
 
 ## Que no se rompa: lint y tests
 
 Lo que no se verifica en CI se degrada en dos *sprints*. Dos capas baratas:
 
-**1. Reglas de accesibilidad en el linter de plantillas.** `angular-eslint` trae un conjunto
+**1. Reglas de accesibilidad en el linter de plantillas.** [`angular-eslint`](https://github.com/angular-eslint/angular-eslint) trae un conjunto
 listo (`templateAccessibility`) que detecta, entre otras cosas, imágenes sin `alt`, clics sin
 evento de teclado, controles sin etiqueta, `tabindex` positivos y ARIA inválido:
 
@@ -175,8 +176,8 @@ module.exports = tseslint.config({
 });
 ```
 
-**2. axe-core en los tests de extremo a extremo** (por ejemplo con Playwright y
-`@axe-core/playwright`), que falla el *pipeline* si una página nueva introduce violaciones:
+**2. [axe-core](https://github.com/dequelabs/axe-core) en los tests de extremo a extremo** (por ejemplo con
+[Playwright y `@axe-core/playwright`](https://playwright.dev/docs/accessibility-testing)), que falla el *pipeline* si una página nueva introduce violaciones:
 
 ```ts
 test('radicar solicitud no tiene violaciones de accesibilidad', async ({ page }) => {
@@ -189,7 +190,7 @@ test('radicar solicitud no tiene violaciones de accesibilidad', async ({ page })
 Ninguna herramienta automática detecta todo: se estima que encuentran apenas una parte de
 los problemas reales. El resto exige probar con teclado y con un lector de pantalla de
 verdad (NVDA, VoiceOver, TalkBack). Esa es la frontera donde termina este post y empieza el
-de A11Y PRO.
+de [A11Y PRO](https://a11ypro.tech).
 
 ## Checklist para tu próximo componente
 
@@ -199,6 +200,16 @@ de A11Y PRO.
 - [ ] ¿Los cambios importantes se anuncian (`LiveAnnouncer`) sin robar el foco?
 - [ ] ¿Cada ruta tiene `title` y mueve el foco al contenido nuevo?
 - [ ] ¿Pasa el lint de `templateAccessibility` y axe en CI?
+
+## Sigue por aquí
+
+- **El post complementario en A11Y PRO:** cómo auditar y validar componentes Angular según WCAG 2.2.
+  <!-- TODO-A11YPRO: reemplazar por el enlace directo al post cuando esté publicado -->
+  Mientras tanto, todo su trabajo está en [a11ypro.tech](https://a11ypro.tech).
+- **Herramientas de A11Y PRO:** un [escáner de accesibilidad](https://scanner.a11ypro.tech), un
+  [widget](https://widget.a11ypro.tech) y [documentación con tutoriales](https://docs.a11ypro.tech).
+- **Si trabajas para el Estado colombiano:** el [layout de GOV.CO](https://gitlab.com/govco/layout-govco)
+  es el punto de partida obligado; todo lo de este post aplica encima de él.
 
 ```bash
 juferoga@portfolio:~/blog$ echo "accesible no es un feature, es un requisito"
