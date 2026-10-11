@@ -18,6 +18,9 @@ draft: false
   - [ ] Quitar `draft: true` del frontmatter.
 -->
 
+> 🚧 **En construcción.** Este artículo es la primera versión de una colaboración con
+> [A11Y PRO](https://a11ypro.tech) y se irá ampliando junto con su post complementario.
+
 ```bash
 juferoga@portfolio:~/blog$ ng lint --fix && echo "¿y ahora sí es accesible?"
 ¿y ahora sí es accesible?
