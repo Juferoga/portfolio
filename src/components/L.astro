@@ -1,0 +1,10 @@
+---
+/**
+ * Texto bilingüe para las páginas estáticas: renderiza ambas versiones y el CSS
+ * muestra la del idioma activo (<html lang>, ver pages.css). Sin `en`, repite `es`.
+ *   <L es="Inicio" en="Home" />
+ */
+interface Props { es: string; en?: string }
+const { es, en } = Astro.props;
+---
+<span data-l="es">{es}</span><span data-l="en">{en ?? es}</span>

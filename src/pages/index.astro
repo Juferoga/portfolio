@@ -12,9 +12,13 @@ const ghStats = await getGithubStats("Juferoga");
 const blogPosts = (await getCollection("blog", ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
   .slice(0, 5)
-  .map((p) => ({ title: p.data.title, url: `/blog/${p.id}`, date: p.data.date.toISOString().slice(0, 10) }));
+  .map((p) => ({ title: p.data.title, url: `/blog/${p.id}/`, date: p.data.date.toISOString().slice(0, 10) }));
 
 // Analítica GoatCounter: open source, sin cookies, sin datos personales (no requiere banner).
+// Título ≤60 y descripción ≤160 caracteres: lo que Google muestra completo en resultados.
+const SEO_TITLE = `${PROFILE.name} — Cloud Developer · ${PROFILE.handle}`;
+const SEO_DESC = "Cloud Developer e Ingeniero de Sistemas en Bogotá. Backend con Java/Spring Boot y Python, AWS e IA aplicada. Proyectos, experiencia, blog y CV.";
+
 const GOATCOUNTER = "https://juferoga.goatcounter.com/count";
 
 const person = {
@@ -65,8 +69,8 @@ const jsonLd = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>{`${PROFILE.name} — ${PROFILE.title} · ${PROFILE.handle}@portfolio:~$`}</title>
-    <meta name="description" content={`${PROFILE.name} — ${PROFILE.role}. Portafolio interactivo tipo terminal.`} />
+    <title>{SEO_TITLE}</title>
+    <meta name="description" content={SEO_DESC} />
     <meta name="author" content={PROFILE.name} />
     <meta name="generator" content={Astro.generator} />
 
@@ -75,18 +79,19 @@ const jsonLd = {
     <meta property="profile:last_name" content="Rodríguez Galindo" />
     <meta property="profile:username" content={PROFILE.handle} />
     <meta property="og:title" content={`${PROFILE.name} — ${PROFILE.title}`} />
-    <meta property="og:description" content={PROFILE.tagline} />
+    <meta property="og:description" content={SEO_DESC} />
     <meta property="og:url" content="https://juferoga.pro" />
     <meta property="og:image" content="https://juferoga.pro/og.png" />
     <meta property="og:image:alt" content={`Tarjeta de presentación de ${PROFILE.name} con estética de terminal`} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="es_CO" />
+    <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:site_name" content="juferoga.pro" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={`${PROFILE.name} — ${PROFILE.title}`} />
-    <meta name="twitter:description" content={PROFILE.tagline} />
+    <meta name="twitter:description" content={SEO_DESC} />
     <meta name="twitter:image" content="https://juferoga.pro/og.png" />
     <meta name="twitter:image:alt" content={`Tarjeta de presentación de ${PROFILE.name} con estética de terminal`} />
 
@@ -115,17 +120,19 @@ const jsonLd = {
         try {
           var coarse = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
           var narrow = window.matchMedia("(max-width: 760px)").matches;
-          if (coarse || narrow) document.documentElement.classList.add("prefer-gui");
+          // ?view=visual (o #visual): enlace directo a la versión visual, útil para reclutadores
+          var asked = /[?&]view=visual\b/.test(location.search) || location.hash === "#visual";
+          if (coarse || narrow || asked) document.documentElement.classList.add("prefer-gui");
         } catch (e) {}
       })();
     </script>
     <noscript>
       <style>
         /* Sin JavaScript la terminal no funciona: se muestra la versión visual (SSR). */
-        .terminal, .hint, #bg-canvas, #matrix-canvas, .crt-overlay, .scanlines, .flicker { display: none !important; }
+        .terminal, #bg-canvas, #matrix-canvas, .crt-overlay, .scanlines, .flicker { display: none !important; }
         .gui { display: block !important; position: relative; z-index: 10; }
         html, body { overflow-y: auto !important; height: auto !important; }
-        .gui-back { display: none !important; }
+        [data-gui-back], [data-gui-lang], [data-gui-theme] { display: none !important; }
       </style>
     </noscript>
   </head>

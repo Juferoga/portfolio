@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+import "../styles/pages.css";
+import L from "../components/L.astro";
 import { PROFILE } from "../data/profile";
 
 interface Props {
@@ -9,9 +11,18 @@ interface Props {
   path: string;
   /** Fecha de publicación (solo posts) — activa metadatos de artículo */
   publishedDate?: Date;
+  /** Sección activa en la navbar */
+  section?: "blog" | "timeline";
+  /** Ancho de lectura (artículos) en vez del ancho completo */
+  narrow?: boolean;
 }
 
-const { title, description, path, publishedDate } = Astro.props;
+const { title, description, path, publishedDate, section = "blog", narrow = false } = Astro.props;
+const NAV = [
+  { href: "/?view=visual", es: "Inicio", en: "Home", key: "home" },
+  { href: "/blog/", es: "Blog", en: "Blog", key: "blog" },
+  { href: "/timeline/", es: "Timeline", en: "Timeline", key: "timeline" },
+] as const;
 const canonical = `https://juferoga.pro${path}`;
 const fullTitle = title === "blog" ? "blog · juferoga.pro" : `${title} · blog · juferoga.pro`;
 
@@ -22,13 +33,19 @@ const jsonLd = publishedDate
       headline: title,
       description,
       datePublished: publishedDate.toISOString(),
+      dateModified: publishedDate.toISOString(),
       inLanguage: "es",
       url: canonical,
+      mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+      image: "https://juferoga.pro/og.png",
+      publisher: { "@type": "Person", "@id": "https://juferoga.pro/#person", name: PROFILE.name },
+      isPartOf: { "@type": "Blog", "@id": "https://juferoga.pro/blog/#blog" },
       author: { "@type": "Person", "@id": "https://juferoga.pro/#person", name: PROFILE.name, url: "https://juferoga.pro" },
     }
   : {
       "@context": "https://schema.org",
       "@type": "Blog",
+      "@id": "https://juferoga.pro/blog/#blog",
       name: "juferoga.pro — blog",
       description,
       inLanguage: "es",
@@ -41,6 +58,10 @@ const jsonLd = publishedDate
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!-- idioma elegido en el sitio (clave compartida "lang"), antes del primer paint: sin parpadeo -->
+    <script is:inline>
+      try { if (localStorage.getItem("lang") === "en") document.documentElement.lang = "en"; } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
@@ -48,15 +69,18 @@ const jsonLd = publishedDate
     <meta name="generator" content={Astro.generator} />
 
     <meta property="og:type" content={publishedDate ? "article" : "website"} />
-    <meta property="og:title" content={title} />
+    <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content="https://juferoga.pro/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={`Tarjeta de presentación de ${PROFILE.name} con estética de terminal`} />
     <meta property="og:locale" content="es_CO" />
     <meta property="og:site_name" content="juferoga.pro" />
     {publishedDate && <meta property="article:published_time" content={publishedDate.toISOString()} />}
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
+    <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content="https://juferoga.pro/og.png" />
 
@@ -73,86 +97,99 @@ const jsonLd = publishedDate
     <link rel="manifest" href="/site.webmanifest" />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
-  <body class="blog-page">
-    <div class="crt-overlay" aria-hidden="true"></div>
-    <div class="scanlines" aria-hidden="true"></div>
+  <body class="site-page">
+    <!-- mismo tema de color que eligió el visitante en la terminal / versión visual -->
+    <script is:inline>
+      try { var th = localStorage.getItem("theme"); if (th === "theme-amber" || th === "theme-cyber") document.body.classList.add(th); } catch (e) {}
+    </script>
+    <div class="site-progress" aria-hidden="true"><span></span></div>
 
-    <header class="blog-topbar">
-      <nav class="blog-nav" aria-label="Navegación del blog">
-        <a href="/" class="blog-brand"><span class="prompt-user">{PROFILE.handle}</span><span class="prompt-at">@</span><span class="prompt-host">portfolio</span><span class="prompt-sep">:</span><span class="prompt-path">~/blog</span></a>
-        <span class="blog-links">
-          <a href="/">~ inicio</a>
-          <a href="/blog">blog</a>
-          <a href="/rss.xml">rss</a>
-        </span>
-      </nav>
-    </header>
+    <nav class="site-nav" aria-label="Navegación principal" data-i18n-aria-es="Navegación principal" data-i18n-aria-en="Main navigation">
+      <a href="/?view=visual" class="site-brand"><span class="site-brand-prompt">~/</span>{PROFILE.handle}<span class="site-brand-caret" aria-hidden="true">_</span></a>
+      <div class="site-links">
+        {NAV.map((n) => (
+          <a href={n.href} aria-current={n.key === section ? "page" : undefined}><L es={n.es} en={n.en} /></a>
+        ))}
+        <a href="/rss.xml">RSS</a>
+      </div>
+      <button type="button" class="site-lang" data-site-lang aria-label="Cambiar idioma / Switch language">🌐 <L es="EN" en="ES" /></button>
+      <a href="/" class="site-term" title="Versión terminal" aria-label="Versión terminal" data-i18n-es="Versión terminal" data-i18n-en="Terminal version"><span class="site-term-icon" aria-hidden="true">&gt;_</span> <span class="site-term-text">Terminal</span></a>
+    </nav>
 
-    <main class="blog-main">
+    <main class={`site-main${narrow ? " is-narrow" : ""}`} id="top">
       <slot />
     </main>
 
-    <footer class="blog-footer">
-      <span>“{PROFILE.tagline}”</span>
-      <span class="dim">© {new Date().getFullYear()} {PROFILE.name} · <a href="/rss.xml">RSS</a></span>
+    <footer class="site-footer">
+      <span>© {new Date().getFullYear()} {PROFILE.name} · <em>“{PROFILE.tagline}”</em></span>
+      <span class="site-footer-links">
+        <a href="/?view=visual"><L es="Portafolio" en="Portfolio" /></a>
+        <a href={PROFILE.contact.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href={PROFILE.contact.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href="/rss.xml">RSS</a>
+      </span>
     </footer>
+
+    <a class="site-top" href="#top" title="Volver arriba" aria-label="Volver arriba" data-i18n-es="Volver arriba" data-i18n-en="Back to top">↑</a>
+
+    <script>
+      import { getLang, setLang } from "../i18n/lang";
+      document.querySelector("[data-site-lang]")?.addEventListener("click", () => {
+        setLang(getLang() === "en" ? "es" : "en");
+      });
+
+      // Atributos que no pueden ser <span> (title / aria-label): se traducen desde JS.
+      //   data-i18n-es/en      → title + aria-label
+      //   data-i18n-aria-es/en → solo aria-label
+      function syncAttrs() {
+        const lang = getLang();
+        document.querySelectorAll<HTMLElement>("[data-i18n-es]").forEach((el) => {
+          const txt = el.dataset[lang === "en" ? "i18nEn" : "i18nEs"];
+          if (!txt) return;
+          el.title = txt;
+          el.setAttribute("aria-label", txt);
+        });
+        document.querySelectorAll<HTMLElement>("[data-i18n-aria-es]").forEach((el) => {
+          const txt = el.dataset[lang === "en" ? "i18nAriaEn" : "i18nAriaEs"];
+          if (txt) el.setAttribute("aria-label", txt);
+        });
+      }
+      syncAttrs();
+      window.addEventListener("langchange", syncAttrs);
+
+      // Progreso de lectura, borde de la navbar, botón "arriba" y aparición al hacer scroll.
+      const body = document.body;
+      const bar = document.querySelector(".site-progress span") as HTMLElement;
+      let ticking = false;
+      function onScroll() {
+        ticking = false;
+        const y = window.scrollY;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.setProperty("--p", String(max > 0 ? Math.min(1, y / max) : 0));
+        body.classList.toggle("scrolled", y > 8);
+        body.classList.toggle("scrolled-far", y > window.innerHeight * 0.9);
+      }
+      window.addEventListener("scroll", () => {
+        if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+      }, { passive: true });
+      onScroll();
+
+      const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
+      if (els.length && "IntersectionObserver" in window) {
+        els.forEach((el) => {
+          const sibs = Array.from(el.parentElement?.children ?? []).filter((c) => c.hasAttribute("data-reveal"));
+          el.style.setProperty("--i", String(Math.min(sibs.indexOf(el), 6)));
+        });
+        body.classList.add("reveal-ready");
+        const io = new IntersectionObserver((entries) => {
+          for (const en of entries) if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        }, { rootMargin: "0px 0px -6% 0px", threshold: 0.05 });
+        els.forEach((el) => io.observe(el));
+      }
+    </script>
 
     {import.meta.env.PROD && (
       <script is:inline data-goatcounter="https://juferoga.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
     )}
   </body>
 </html>
-
-<style is:global>
-  /* Las páginas del blog son documentos con scroll normal (el resto del sitio lo bloquea) */
-  html:has(.blog-page), body.blog-page {
-    overflow-y: auto;
-    height: auto;
-    min-height: 100%;
-    scrollbar-width: thin;
-    scrollbar-color: var(--fg-dim) transparent;
-  }
-
-  .blog-topbar {
-    position: sticky; top: 0; z-index: 60;
-    border-bottom: 1px solid var(--fg-dim);
-    background: rgba(5, 10, 6, 0.9);
-    backdrop-filter: blur(6px);
-  }
-  .blog-nav {
-    max-width: 760px; margin: 0 auto; padding: 12px 18px;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  }
-  .blog-brand { text-decoration: none; font-weight: 700; }
-  .blog-links { display: flex; gap: 16px; }
-  .blog-nav a { color: var(--link); text-decoration: none; border-bottom: 1px dotted transparent; }
-  .blog-nav a:hover { color: var(--fg-bright); border-bottom-color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
-
-  .blog-main { max-width: 760px; margin: 0 auto; padding: 36px 18px 20px; position: relative; z-index: 10; }
-
-  .blog-footer {
-    max-width: 760px; margin: 0 auto; padding: 20px 18px 40px;
-    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-    border-top: 1px solid var(--fg-dim); color: var(--fg-bright); font-style: italic; font-size: 14px;
-  }
-  .blog-footer .dim { color: var(--fg-dim); font-style: normal; }
-  .blog-footer a { color: var(--link); }
-
-  /* Tipografía de artículos (contenido Markdown) */
-  .blog-prose { line-height: 1.75; }
-  .blog-prose h2 { color: var(--accent); margin: 28px 0 10px; font-size: 21px; border-bottom: 1px dashed var(--fg-dim); padding-bottom: 6px; }
-  .blog-prose h3 { color: var(--fg-bright); margin: 22px 0 8px; font-size: 17px; }
-  .blog-prose p { margin: 12px 0; color: var(--fg); }
-  .blog-prose a { color: var(--link); text-decoration: none; border-bottom: 1px dotted var(--link); }
-  .blog-prose a:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
-  .blog-prose strong { color: var(--fg-bright); }
-  .blog-prose em { color: var(--fg-bright); }
-  .blog-prose ul, .blog-prose ol { margin: 12px 0; padding-left: 26px; }
-  .blog-prose li { margin: 6px 0; }
-  .blog-prose blockquote { border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; margin: 14px 0; color: var(--fg-bright); font-style: italic; }
-  .blog-prose code { background: rgba(255,255,255,0.07); border: 1px solid var(--fg-dim); border-radius: 4px; padding: 1px 6px; font-size: 0.92em; }
-  .blog-prose pre { margin: 14px 0; padding: 14px 16px; border: 1px solid var(--fg-dim); border-radius: 8px; overflow-x: auto; }
-  .blog-prose pre code { background: none; border: none; padding: 0; }
-  .blog-prose img { max-width: 100%; border-radius: 8px; border: 1px solid var(--fg-dim); }
-  .blog-prose hr { border: none; border-top: 1px dashed var(--fg-dim); margin: 24px 0; }
-</style>

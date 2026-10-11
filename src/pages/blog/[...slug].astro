@@ -1,49 +1,108 @@
 ---
-import { getCollection, render } from "astro:content";
+import { getCollection, render, type CollectionEntry } from "astro:content";
 import BlogLayout from "../../layouts/BlogLayout.astro";
+import L from "../../components/L.astro";
+import { readingMinutes } from "../../utils/reading";
 
 export async function getStaticPaths() {
-  const posts = await getCollection("blog", ({ data }) => !data.draft);
-  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+  const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+    (a, b) => a.data.date.getTime() - b.data.date.getTime()
+  );
+  // anterior = más antiguo, siguiente = más reciente
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    props: { post, prev: posts[i - 1] ?? null, next: posts[i + 1] ?? null },
+  }));
 }
 
-const { post } = Astro.props;
+const { post, prev, next } = Astro.props as {
+  post: CollectionEntry<"blog">;
+  prev: CollectionEntry<"blog"> | null;
+  next: CollectionEntry<"blog"> | null;
+};
 const { Content } = await render(post);
 
-const fmt = (d: Date) =>
-  d.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+// la fecha se renderiza en ambos formatos y el CSS muestra la del idioma activo
+const fmt = (d: Date, locale: "es-CO" | "en-US" = "es-CO") =>
+  d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+// título en inglés cuando existe (el cuerpo del artículo sigue en español)
+const titleEn = (p: CollectionEntry<"blog">) => p.data.titleEn ?? p.data.title;
 ---
 
 <BlogLayout
   title={post.data.title}
   description={post.data.description}
-  path={`/blog/${post.id}`}
+  path={`/blog/${post.id}/`}
   publishedDate={post.data.date}
+  section="blog"
+  narrow
 >
   <article>
-    <header class="post-header">
-      <h1 class="post-title">{post.data.title}</h1>
+    <header class="page-head">
+      <span class="page-kicker"><a href="/blog/">← ~/blog</a></span>
+      <h1 class="page-title post-title"><L es={post.data.title} en={titleEn(post)} /></h1>
       <p class="post-meta">
-        <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
-        {post.data.tags.length > 0 && (
-          <span class="post-tags">{post.data.tags.map((t) => <span class="post-tag">#{t}</span>)}</span>
-        )}
+        <time datetime={post.data.date.toISOString()}><L es={fmt(post.data.date)} en={fmt(post.data.date, "en-US")} /></time>
+        <span aria-hidden="true">·</span>
+        <span>{readingMinutes(post.body)} <L es="min de lectura" en="min read" /></span>
       </p>
+      {post.data.tags.length > 0 && (
+        <p class="post-tags">{post.data.tags.map((t) => <span class="pill">#{t}</span>)}</p>
+      )}
     </header>
-    <div class="blog-prose">
+
+    <p class="lang-note" data-l="en" lang="en">
+      <span aria-hidden="true">🇪🇸</span> This article is written in Spanish.
+    </p>
+
+    <div class="prose" lang="es">
       <Content />
     </div>
-    <p class="post-back"><a href="/blog">← todos los artículos</a></p>
+
+    {(prev || next) && (
+      <nav class="post-nav" aria-label="Más artículos" data-i18n-aria-es="Más artículos" data-i18n-aria-en="More articles">
+        {prev ? (
+          <a class="post-nav-card panel" href={`/blog/${prev.id}/`}>
+            <span class="post-nav-dir"><L es="← Anterior" en="← Previous" /></span>
+            <span class="post-nav-title"><L es={prev.data.title} en={titleEn(prev)} /></span>
+          </a>
+        ) : <span />}
+        {next && (
+          <a class="post-nav-card panel is-next" href={`/blog/${next.id}/`}>
+            <span class="post-nav-dir"><L es="Siguiente →" en="Next →" /></span>
+            <span class="post-nav-title"><L es={next.data.title} en={titleEn(next)} /></span>
+          </a>
+        )}
+      </nav>
+    )}
   </article>
 </BlogLayout>
 
 <style>
-  .post-header { margin-bottom: 8px; }
-  .post-title { color: var(--fg-bright); font-size: clamp(24px, 5vw, 32px); line-height: 1.25; text-shadow: 0 0 12px var(--glow); }
-  .post-meta { color: var(--fg-dim); font-size: 13.5px; margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
-  .post-tags { display: flex; gap: 10px; }
-  .post-tag { color: var(--fg-dim); }
-  .post-back { margin-top: 34px; }
-  .post-back a { color: var(--link); text-decoration: none; border-bottom: 1px dotted var(--link); }
-  .post-back a:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
+  .post-title { font-size: clamp(28px, 4.6vw, 40px); }
+  .post-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; font-size: 13.5px; color: var(--text-dim); }
+  .post-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+  /* aviso en modo EN: el cuerpo del artículo solo existe en español */
+  .lang-note {
+    margin: 0 0 28px; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    font-size: 13.5px; color: var(--text-dim);
+  }
+
+  .post-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 64px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .post-nav-card {
+    display: flex; flex-direction: column; gap: 6px; padding: 18px 20px;
+    text-decoration: none; transition: border-color 0.25s, transform 0.25s;
+  }
+  .post-nav-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); transform: translateY(-2px); }
+  .post-nav-card.is-next { text-align: right; }
+  .post-nav-dir { font-size: 12.5px; color: var(--accent); }
+  .post-nav-title { font-size: 14.5px; line-height: 1.45; color: var(--fg-bright); }
+
+  @media (max-width: 640px) {
+    .post-nav { grid-template-columns: 1fr; }
+    .post-nav-card.is-next { text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) { .post-nav-card:hover { transform: none; } }
 </style>

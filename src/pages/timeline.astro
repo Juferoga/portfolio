@@ -1,277 +1,335 @@
 ---
 import BlogLayout from "../layouts/BlogLayout.astro";
+import L from "../components/L.astro";
 import {
+  ERAS,
   MILESTONES,
   JOBS,
   GITHUB_YEAR_STATS,
-  eraForYear,
   GITHUB_TOTAL_COMMITS,
+  eraForYear,
+  type Era,
   type Milestone,
   type Job,
 } from "../data/timeline.ts";
 
-// --- Agrupación por año (2018 → 2026) ---------------------------------------
-const FROM = 2018;
-const TO = 2026;
-const years = Array.from({ length: TO - FROM + 1 }, (_, i) => FROM + i);
+// La línea de tiempo se presenta como un `git log --graph`: tres ramas paralelas
+// (GitHub, GitLab y Trabajo) y cada hito es un "commit" sobre su rama. Se agrupa
+// por eras (capítulos) y, dentro de cada era, por año.
+
+type Lane = "github" | "gitlab" | "work";
+type Entry = {
+  id: string;
+  date: string;
+  year: number;
+  lane: Lane;
+  isHito: boolean;
+  isJob: boolean;
+  m?: Milestone;
+  j?: Job;
+  search: string;
+};
 
 const yearOf = (iso: string) => Number(iso.slice(0, 4));
 
-// Entradas de la línea de tiempo: hitos de repos y empleos, unificados y
-// ordenados por fecha dentro de cada año. El discriminante `type` decide el
-// render (nodo de repo vs. nodo de trabajo con distintivo propio).
-type Entry =
-  | { type: "milestone"; date: string; m: Milestone }
-  | { type: "job"; date: string; j: Job };
+// Slug estable para enlazar un hito (#h-2019-05-19-las-notas-del-sena)
+const slug = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 
-const groups = years
-  .map((year) => {
-    const entries: Entry[] = [
-      ...MILESTONES.filter((m) => yearOf(m.date) === year).map(
-        (m): Entry => ({ type: "milestone", date: m.date, m }),
-      ),
-      ...JOBS.filter((j) => yearOf(j.date) === year).map(
-        (j): Entry => ({ type: "job", date: j.date, j }),
-      ),
-    ].sort((a, b) => a.date.localeCompare(b.date));
-    return { year, era: eraForYear(year), items: entries };
-  })
-  .filter((g) => g.items.length > 0);
+const usedIds = new Set<string>();
+const uniqueId = (base: string) => {
+  let id = base, n = 2;
+  while (usedIds.has(id)) id = `${base}-${n++}`;
+  usedIds.add(id);
+  return id;
+};
 
-const totalJobs = JOBS.length;
+const entries: Entry[] = [
+  ...MILESTONES.map((m): Entry => ({
+    id: uniqueId(`h-${m.date}-${slug(m.title)}`),
+    date: m.date, year: yearOf(m.date), lane: m.source, isHito: m.kind === "milestone", isJob: false, m,
+    search: [m.title, m.titleEn, m.desc, m.descEn, ...m.repos].filter(Boolean).join(" ").toLowerCase(),
+  })),
+  ...JOBS.map((j): Entry => ({
+    id: uniqueId(`h-${j.date}-${slug(j.role + " " + j.org)}`),
+    date: j.date, year: yearOf(j.date), lane: "work", isHito: false, isJob: true, j,
+    search: [j.role, j.roleEn, j.org, j.desc, j.descEn, ...j.tech].filter(Boolean).join(" ").toLowerCase(),
+  })),
+].sort((a, b) => a.date.localeCompare(b.date));
 
-// --- Datos del gráfico de barras --------------------------------------------
+// Cada era enlaza al capítulo de la serie «historia en git» del blog
+const ERA_POSTS: Record<string, string> = {
+  origenes: "historia-el-dia-cero",
+  pandemia: "historia-modelando-la-pandemia",
+  universidad: "historia-dando-clase-en-el-glud",
+  sabatico: "historia-el-ano-que-casi-no-existio",
+  "gran-anio": "historia-el-gran-ano-y-la-tesis",
+  banco: "historia-el-salto-al-banco",
+  maestria: "historia-la-maestria-y-el-presente",
+};
+
+const chapters = ERAS.map((era: Era, i) => {
+  const items = entries.filter((e) => e.year >= era.from && e.year <= era.to);
+  const years = [...new Set(items.map((e) => e.year))].sort();
+  const commits = GITHUB_YEAR_STATS.filter((s) => s.year >= era.from && s.year <= era.to)
+    .reduce((sum, s) => sum + s.commits, 0);
+  return {
+    era, n: i + 1, commits, years,
+    byYear: years.map((y) => ({ year: y, items: items.filter((e) => e.year === y) })),
+    hitos: items.filter((e) => !e.isJob).length,
+    jobs: items.filter((e) => e.isJob).length,
+    post: ERA_POSTS[era.id],
+  };
+}).filter((c) => c.years.length > 0);
+
 const chart = GITHUB_YEAR_STATS.slice().sort((a, b) => a.year - b.year);
 const maxCommits = Math.max(...chart.map((s) => s.commits));
 const peakYear = chart.find((s) => s.commits === maxCommits)?.year;
+const allYears = new Set(entries.map((e) => e.year));
 
-// Barra en caracteres de bloque (▓) — fallback ASCII, sobre él va la barra CSS.
-const blocksFor = (n: number) => "▓".repeat(Math.max(1, Math.round((n / maxCommits) * 28)));
-
-const totalMilestones = MILESTONES.length;
-
-const fmtDate = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("es-CO", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
+const fmt = (iso: string, loc: string, withDay = true) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString(loc, {
+    year: "numeric", month: "short", ...(withDay ? { day: "numeric" } : {}), timeZone: "UTC",
   });
-
-const fmtMonth = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("es-CO", {
-    year: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-
-// Rango de fechas de un empleo (mes inicio — mes fin / "actualidad").
-const fmtRange = (j: Job) =>
-  `${fmtMonth(j.date)} — ${j.current || !j.end ? "actualidad" : fmtMonth(j.end)}`;
+const range = (j: Job, loc: string, now: string) =>
+  `${fmt(j.date, loc, false)} — ${j.current || !j.end ? now : fmt(j.end, loc, false)}`;
+const yearsLabel = (e: Era) => (e.from === e.to ? `${e.from}` : `${e.from}–${e.to}`);
+const pad = (n: number) => String(n).padStart(2, "0");
 ---
 
 <BlogLayout
   title="timeline"
   description="Línea de tiempo interactiva de Juan Felipe Rodríguez Galindo (Juferoga): del primer repo en 2018 a la maestría en IA en 2026, con hitos de GitHub y GitLab."
-  path="/timeline"
+  path="/timeline/"
+  section="timeline"
 >
-  <h1 class="blog-title">~/timeline</h1>
-  <p class="blog-intro dim">
-    <span class="tl-cmd">git log --all --since=2018 --oneline</span> — {years[0]}→{years[years.length - 1]},
-    {totalMilestones} hitos entre GitHub y GitLab, {totalJobs} empleos y roles, {GITHUB_TOTAL_COMMITS.toLocaleString("es-CO")} contribuciones. Toca un hito para expandirlo.
-  </p>
+  <header class="page-head">
+    <span class="page-kicker">~/timeline · <span class="tl-cmd">git log --graph --all --since=2018</span></span>
+    <h1 class="page-title"><L es="Línea de tiempo" en="Timeline" /></h1>
+    <p class="page-lead">
+      <L
+        es={`De ${chart[0].year} a ${chart[chart.length - 1].year}: mi historia contada como un repositorio. Cada hito es un commit sobre su rama; toca cualquiera para ver el detalle.`}
+        en={`From ${chart[0].year} to ${chart[chart.length - 1].year}: my story told as a repository. Every milestone is a commit on its branch — tap any of them for the details.`}
+      />
+    </p>
+    <div class="tl-stats">
+      <div><strong>{chapters.length}</strong><span><L es="capítulos" en="chapters" /></span></div>
+      <div><strong>{MILESTONES.length}</strong><span><L es="hitos en GitHub y GitLab" en="GitHub & GitLab milestones" /></span></div>
+      <div><strong>{JOBS.length}</strong><span><L es="empleos y roles" en="jobs & roles" /></span></div>
+      <div><strong><L es={GITHUB_TOTAL_COMMITS.toLocaleString("es-CO")} en={GITHUB_TOTAL_COMMITS.toLocaleString("en-US")} /></strong><span><L es="contribuciones" en="contributions" /></span></div>
+    </div>
+    <ul class="tl-legend" aria-label="Leyenda / Legend">
+      <li><span class="lg-dot lg-github"></span>GitHub</li>
+      <li><span class="lg-dot lg-gitlab"></span>GitLab</li>
+      <li><span class="lg-dot lg-work"></span><L es="Trabajo" en="Work" /></li>
+      <li><span class="lg-dot lg-hito"></span><L es="Hito clave" en="Key milestone" /></li>
+    </ul>
+  </header>
 
-  <!-- ===================== GRÁFICO DE COMMITS ===================== -->
-  <section class="tl-chart" aria-labelledby="tl-chart-h">
-    <h2 id="tl-chart-h" class="tl-h">
-      <span class="tl-h-prompt">$</span> commits --per-year
-    </h2>
+  <!-- ===================== GRÁFICO DE COMMITS (por era, clicable) ===================== -->
+  <section class="tl-chart" aria-labelledby="tl-chart-h" data-reveal>
+    <h2 id="tl-chart-h" class="tl-h"><span class="tl-h-prompt">$</span> git shortlog --per-year</h2>
     <ul class="tl-bars" role="list">
       {chart.map((s) => {
         const pct = Math.max(3, Math.round((s.commits / maxCommits) * 100));
-        const peak = s.year === peakYear;
-        return (
-          <li class={`tl-bar-row${peak ? " is-peak" : ""}`}>
+        const era = eraForYear(s.year);
+        const inner = (
+          <>
             <span class="tl-bar-year">{s.year}</span>
-            <span class="tl-bar-track">
-              <span class="tl-bar-fill" style={`width:${pct}%`} aria-hidden="true">
-                <span class="tl-bar-blocks">{blocksFor(s.commits)}</span>
-              </span>
-            </span>
+            <span class="tl-bar-track"><span class="tl-bar-fill" style={`width:${pct}%`}></span></span>
             <span class="tl-bar-num">
-              {s.commits}
-              {peak && <span class="tl-bar-flag"> ◄ pico</span>}
+              {s.commits}{s.year === peakYear && <span class="tl-bar-flag"> ◄ <L es="pico" en="peak" /></span>}
             </span>
+          </>
+        );
+        return (
+          <li class={`tl-bar-row${s.year === peakYear ? " is-peak" : ""}`} style={`--era:${era?.color ?? "var(--accent)"}`}>
+            {allYears.has(s.year)
+              ? <a class="tl-bar-link" href={`#y-${s.year}`}>{inner}</a>
+              : <span class="tl-bar-link">{inner}</span>}
           </li>
         );
       })}
     </ul>
-    <p class="tl-chart-note dim">contribuciones GitHub por año · 2026 hasta julio</p>
+    <p class="tl-chart-note">
+      <L es="contribuciones GitHub por año · color de cada era · toca un año para ir allí" en="GitHub contributions per year · colored by era · tap a year to jump there" />
+    </p>
   </section>
 
-  <!-- ===================== FILTROS ===================== -->
-  <div class="tl-filters" role="group" aria-label="Filtrar hitos de la línea de tiempo">
-    <span class="tl-filters-label dim">filtrar:</span>
-    <button type="button" class="tl-filter is-active" data-filter="all" aria-pressed="true">[todo]</button>
-    <button type="button" class="tl-filter" data-filter="github" aria-pressed="false">[github]</button>
-    <button type="button" class="tl-filter" data-filter="gitlab" aria-pressed="false">[gitlab]</button>
-    <button type="button" class="tl-filter" data-filter="hitos" aria-pressed="false">[hitos]</button>
-    <button type="button" class="tl-filter" data-filter="trabajo" aria-pressed="false">[trabajo]</button>
-    <span class="tl-count dim" aria-live="polite" data-tl-count></span>
+  <!-- ===================== RIEL DE ERAS (fijo bajo la navbar) ===================== -->
+  <nav class="tl-rail" aria-label="Capítulos / Chapters" data-tl-rail>
+    <div class="tl-rail-track">
+      {chapters.map((c) => (
+        <a class="tl-rail-seg" href={`#era-${c.era.id}`} data-rail={c.era.id}
+          style={`--era:${c.era.color}; flex-grow:${c.hitos + c.jobs}`} title={c.era.title}>
+          <span class="tl-rail-fill" aria-hidden="true"></span>
+          <span class="tl-rail-emoji" aria-hidden="true">{c.era.emoji}</span>
+          <span class="tl-rail-label">{yearsLabel(c.era)}</span>
+        </a>
+      ))}
+    </div>
+    <span class="tl-rail-year" aria-live="off" data-tl-now>{chapters[0].years[0]}</span>
+  </nav>
+
+  <!-- ===================== CONTROLES ===================== -->
+  <div class="tl-controls">
+    <label class="tl-grep">
+      <span class="tl-grep-prompt" aria-hidden="true">git log --grep=</span>
+      <input type="search" data-tl-grep autocomplete="off" spellcheck="false"
+        placeholder="angular, glud, tesis…" aria-label="Buscar en la línea de tiempo / Search the timeline" />
+    </label>
+    <div class="tl-filters" role="group" aria-label="Filtrar / Filter">
+      <button type="button" class="tl-filter is-active" data-filter="all" aria-pressed="true"><L es="Todo" en="All" /></button>
+      <button type="button" class="tl-filter" data-filter="github" aria-pressed="false">GitHub</button>
+      <button type="button" class="tl-filter" data-filter="gitlab" aria-pressed="false">GitLab</button>
+      <button type="button" class="tl-filter" data-filter="hitos" aria-pressed="false">★ <L es="Hitos" en="Milestones" /></button>
+      <button type="button" class="tl-filter" data-filter="trabajo" aria-pressed="false">💼 <L es="Trabajo" en="Work" /></button>
+    </div>
+    <div class="tl-tools">
+      <span class="tl-count" aria-live="polite" data-tl-count></span>
+      <button type="button" class="tl-expand" data-tl-expand aria-pressed="false">
+        <span data-l="es">⇕ Expandir todo</span><span data-l="en">⇕ Expand all</span>
+      </button>
+    </div>
   </div>
 
-  <!-- ===================== LÍNEA DE TIEMPO ===================== -->
-  <div class="tl-timeline" data-tl-root>
-    {groups.map((g) => (
-      <section class="tl-year" data-tl-year={g.year}>
-        <header class="tl-year-head">
-          <span class="tl-year-num" style={`--era-color:${g.era?.color ?? "var(--accent)"}`}>{g.year}</span>
-          {g.era && (
-            <span class="tl-year-era">
-              <span class="tl-era-emoji" aria-hidden="true">{g.era.emoji}</span>
-              {g.era.title}
+  <!-- ===================== CAPÍTULOS ===================== -->
+  <div class="tl-root" data-tl-root>
+    {chapters.map((c) => (
+      <section class="tl-chapter" id={`era-${c.era.id}`} data-chapter={c.era.id} style={`--era:${c.era.color}`}>
+        <header class="tl-chapter-head" data-reveal>
+          <span class="tl-chapter-emoji" aria-hidden="true">{c.era.emoji}</span>
+          <div class="tl-chapter-text">
+            <span class="tl-chapter-kicker">
+              <L es={`Capítulo ${pad(c.n)}`} en={`Chapter ${pad(c.n)}`} /> · {yearsLabel(c.era)}
             </span>
-          )}
+            <h2 class="tl-chapter-title"><L es={c.era.title} en={c.era.titleEn} /></h2>
+            <p class="tl-chapter-summary"><L es={c.era.summary} en={c.era.summaryEn} /></p>
+            <div class="tl-chapter-meta">
+              <span><strong>{c.commits}</strong> commits</span>
+              <span><strong>{c.hitos}</strong> <L es="hitos" en="milestones" /></span>
+              {c.jobs > 0 && <span><strong>{c.jobs}</strong> <L es={c.jobs === 1 ? "rol" : "roles"} en={c.jobs === 1 ? "role" : "roles"} /></span>}
+              {c.post && (
+                <a class="tl-chapter-post" href={`/blog/${c.post}/`}>
+                  <L es="Leer la historia completa" en="Read the full story" /> <span aria-hidden="true">→</span>
+                </a>
+              )}
+            </div>
+          </div>
         </header>
-        <ul class="tl-list" role="list">
-          {g.items.map((entry, i) => {
-            const id = `tl-${g.year}-${i}`;
 
-            if (entry.type === "job") {
-              const j = entry.j;
-              return (
-                <li class="tl-item" data-tl-item data-source="work" data-kind="job">
-                  <button
-                    type="button"
-                    class="tl-node tl-node--work is-job"
-                    id={`${id}-btn`}
-                    aria-expanded="false"
-                    aria-controls={`${id}-panel`}
-                    data-tl-node
-                  >
-                    <span class="tl-dot" aria-hidden="true"></span>
-                    <span class="tl-node-main">
-                      <span class="tl-node-top">
-                        <time class="tl-node-date" datetime={j.date}>{fmtRange(j)}</time>
-                        <span class="tl-work-flag">💼 trabajo</span>
-                        {j.private && (
-                          <span class="tl-priv-flag" title="El código vivió en GitLab privado/institucional">🔒 GitLab privado</span>
+        {c.byYear.map((y) => (
+          <div class="tl-year" id={`y-${y.year}`} data-tl-year={y.year}>
+            <div class="tl-tag" aria-hidden="true"><span>tag: v{y.year}</span></div>
+            <h3 class="sr-only">{y.year}</h3>
+            <ul class="tl-list" role="list">
+              {y.items.map((e) => {
+                const m = e.m, j = e.j;
+                return (
+                  <li class={`tl-item lane-${e.lane}`} id={e.id} data-tl-item data-reveal
+                    data-source={j ? "work" : m!.source} data-kind={j ? "job" : m!.kind} data-search={e.search}>
+                    <span class="tl-graph" aria-hidden="true"><span class="tl-dot"></span></span>
+                    <div class="tl-card">
+                      <button type="button" class={`tl-node${e.isHito ? " is-hito" : ""}${e.isJob ? " is-job" : ""}`}
+                        id={`${e.id}-btn`} aria-expanded="false" aria-controls={`${e.id}-panel`} data-tl-node>
+                        <span class="tl-node-main">
+                          <span class="tl-node-top">
+                            {j ? (
+                              <time class="tl-node-date" datetime={j.date}>
+                                <L es={range(j, "es-CO", "actualidad")} en={range(j, "en-US", "present")} />
+                              </time>
+                            ) : (
+                              <time class="tl-node-date" datetime={m!.date}>
+                                <L es={fmt(m!.date, "es-CO")} en={fmt(m!.date, "en-US")} />
+                              </time>
+                            )}
+                            {j && <span class="tl-flag tl-flag--work">💼 <L es="trabajo" en="work" /></span>}
+                            {j?.private && <span class="tl-flag tl-flag--priv">🔒 <L es="GitLab privado" en="private GitLab" /></span>}
+                            {j?.current && <span class="tl-flag tl-flag--now">● <L es="actual" en="current" /></span>}
+                            {m && <span class={`tl-src tl-src--${m.source}`}>{m.source === "github" ? "GH" : "GL"}</span>}
+                            {e.isHito && <span class="tl-flag tl-flag--hito">★ <L es="hito" en="milestone" /></span>}
+                          </span>
+                          <span class="tl-node-title">
+                            {j ? (
+                              <><L es={j.role} en={j.roleEn} /> <span class="tl-node-org">· {j.org}</span></>
+                            ) : (
+                              <L es={m!.title} en={m!.titleEn} />
+                            )}
+                          </span>
+                        </span>
+                        <span class="tl-caret" aria-hidden="true">▸</span>
+                      </button>
+                      <div class="tl-panel" id={`${e.id}-panel`} role="region" aria-labelledby={`${e.id}-btn`} hidden>
+                        <p class="tl-desc"><L es={(j ?? m)!.desc} en={(j ?? m)!.descEn} /></p>
+                        {j?.note && <p class="tl-note"><L es={j.note} en={j.noteEn} /></p>}
+                        {j && j.tech.length > 0 && (
+                          <p class="tl-chips"><span class="tl-chips-label">stack:</span>{j.tech.map((t) => <span class="tl-chip">{t}</span>)}</p>
                         )}
-                        {j.source === "github" && !j.private && (
-                          <span class="tl-src tl-src--github">GH</span>
+                        {m && m.repos.length > 0 && (
+                          <p class="tl-chips"><span class="tl-chips-label">repos:</span>{m.repos.map((r) => <span class="tl-chip tl-chip--repo">{r}</span>)}</p>
                         )}
-                        {j.current && <span class="tl-now-flag">● actual</span>}
-                      </span>
-                      <span class="tl-node-title">
-                        {j.role} <span class="tl-node-org">· {j.org}</span>
-                      </span>
-                    </span>
-                    <span class="tl-caret" aria-hidden="true">▸</span>
-                  </button>
-                  <div class="tl-panel" id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`} hidden>
-                    <p class="tl-desc">{j.desc}</p>
-                    {j.note && <p class="tl-note dim">{j.note}</p>}
-                    {j.tech.length > 0 && (
-                      <p class="tl-tech">
-                        <span class="tl-tech-label dim">stack:</span>
-                        {j.tech.map((t) => (
-                          <span class="tl-chip">{t}</span>
-                        ))}
-                      </p>
-                    )}
-                    {j.private && !j.url && (
-                      <p class="tl-open dim">// código en GitLab privado/institucional — sin repo público</p>
-                    )}
-                    {j.url && (
-                      <p class="tl-open">
-                        <a href={j.url} target="_blank" rel="noopener noreferrer">
-                          abrir repo relacionado ↗
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                </li>
-              );
-            }
-
-            const m = entry.m;
-            return (
-              <li
-                class="tl-item"
-                data-tl-item
-                data-source={m.source}
-                data-kind={m.kind}
-              >
-                <button
-                  type="button"
-                  class={`tl-node tl-node--${m.source}${m.kind === "milestone" ? " is-hito" : ""}`}
-                  id={`${id}-btn`}
-                  aria-expanded="false"
-                  aria-controls={`${id}-panel`}
-                  data-tl-node
-                >
-                  <span class="tl-dot" aria-hidden="true"></span>
-                  <span class="tl-node-main">
-                    <span class="tl-node-top">
-                      <time class="tl-node-date" datetime={m.date}>{fmtDate(m.date)}</time>
-                      <span class={`tl-src tl-src--${m.source}`}>
-                        {m.source === "github" ? "GH" : "GL"}
-                      </span>
-                      {m.kind === "milestone" && <span class="tl-hito-flag">★ hito</span>}
-                    </span>
-                    <span class="tl-node-title">{m.title}</span>
-                  </span>
-                  <span class="tl-caret" aria-hidden="true">▸</span>
-                </button>
-                <div class="tl-panel" id={`${id}-panel`} role="region" aria-labelledby={`${id}-btn`} hidden>
-                  <p class="tl-desc">{m.desc}</p>
-                  {m.repos.length > 0 && (
-                    <p class="tl-repos">
-                      <span class="tl-repos-label dim">repos:</span>
-                      {m.repos.map((r, ri) => (
-                        <>
-                          {ri > 0 && <span class="tl-sep" aria-hidden="true"> · </span>}
-                          {ri === 0 && m.url ? (
-                            <a class="tl-repo" href={m.url} target="_blank" rel="noopener noreferrer">{r}</a>
-                          ) : (
-                            <span class="tl-repo tl-repo--plain">{r}</span>
+                        {j?.private && !j.url && (
+                          <p class="tl-muted"><L es="// código en GitLab privado/institucional — sin repo público" en="// code lives in private/institutional GitLab — no public repo" /></p>
+                        )}
+                        <p class="tl-actions">
+                          {(j?.url || m?.url) && (
+                            <a class="tl-open" href={(j?.url ?? m?.url)!} target="_blank" rel="noopener noreferrer">
+                              {j ? <L es="abrir repo relacionado ↗" en="open related repo ↗" />
+                                 : <L es={`abrir en ${m!.source === "github" ? "GitHub" : "GitLab"} ↗`} en={`open on ${m!.source === "github" ? "GitHub" : "GitLab"} ↗`} />}
+                            </a>
                           )}
-                        </>
-                      ))}
-                    </p>
-                  )}
-                  {m.url && (
-                    <p class="tl-open">
-                      <a href={m.url} target="_blank" rel="noopener noreferrer">
-                        abrir en {m.source === "github" ? "GitHub" : "GitLab"} ↗
-                      </a>
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                          <button type="button" class="tl-copy" data-tl-copy={e.id}>
+                            <span data-l="es">🔗 copiar enlace</span><span data-l="en">🔗 copy link</span>
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </section>
     ))}
-    <p class="tl-empty dim" data-tl-empty hidden>// sin hitos para este filtro</p>
+
+    <div class="tl-head" data-reveal>
+      <span class="tl-graph" aria-hidden="true"><span class="tl-dot tl-dot--head"></span></span>
+      <div>
+        <p class="tl-head-ref"><span class="tl-head-label">HEAD</span> → main</p>
+        <p class="tl-head-text">
+          <L es="La historia sigue: el próximo commit está en camino." en="The story goes on: the next commit is on its way." />
+        </p>
+        <p class="tl-head-links">
+          <a href="/blog/"><L es="Leer la serie en el blog" en="Read the series on the blog" /> →</a>
+          <a href="/?view=visual"><L es="Ver el portafolio" en="See the portfolio" /> →</a>
+        </p>
+      </div>
+    </div>
+
+    <p class="tl-empty" data-tl-empty hidden>
+      <L es="// sin commits que coincidan — prueba otra búsqueda" en="// no matching commits — try another search" />
+    </p>
   </div>
 </BlogLayout>
 
 <script>
-  // ---------------------------------------------------------------------------
-  // Interactividad vanilla — sin frameworks. Los datos ya están en el DOM.
-  // ---------------------------------------------------------------------------
+  import { tr } from "../i18n/lang";
+
   const root = document.querySelector<HTMLElement>("[data-tl-root]");
   if (root) {
     const nodes = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-tl-node]"));
     const items = Array.from(root.querySelectorAll<HTMLLIElement>("[data-tl-item]"));
-    const years = Array.from(root.querySelectorAll<HTMLElement>("[data-tl-year]"));
+    const yearsEls = Array.from(root.querySelectorAll<HTMLElement>("[data-tl-year]"));
+    const chaptersEls = Array.from(root.querySelectorAll<HTMLElement>("[data-chapter]"));
     const filters = Array.from(document.querySelectorAll<HTMLButtonElement>(".tl-filter"));
-    const countEl = document.querySelector<HTMLElement>("[data-tl-count]");
-    const emptyEl = document.querySelector<HTMLElement>("[data-tl-empty]");
+    const grep = document.querySelector<HTMLInputElement>("[data-tl-grep]")!;
+    const countEl = document.querySelector<HTMLElement>("[data-tl-count]")!;
+    const emptyEl = document.querySelector<HTMLElement>("[data-tl-empty]")!;
+    const expandBtn = document.querySelector<HTMLButtonElement>("[data-tl-expand]")!;
 
-    // --- Expandir / colapsar un hito ---
+    // ── Expandir / colapsar ──
     function toggle(btn: HTMLButtonElement, force?: boolean) {
       const panel = document.getElementById(btn.getAttribute("aria-controls") || "");
       if (!panel) return;
@@ -279,377 +337,411 @@ const fmtRange = (j: Job) =>
       btn.setAttribute("aria-expanded", String(open));
       panel.hidden = !open;
     }
+    nodes.forEach((btn) => btn.addEventListener("click", () => {
+      toggle(btn);
+      // el hito abierto queda en la URL: se puede compartir
+      const item = btn.closest<HTMLElement>("[data-tl-item]")!;
+      if (btn.getAttribute("aria-expanded") === "true") history.replaceState(null, "", `#${item.id}`);
+    }));
 
-    nodes.forEach((btn) => {
-      btn.addEventListener("click", () => toggle(btn));
+    expandBtn.addEventListener("click", () => {
+      const open = expandBtn.getAttribute("aria-pressed") !== "true";
+      expandBtn.setAttribute("aria-pressed", String(open));
+      nodes.forEach((b) => { if (!b.closest<HTMLElement>("[data-tl-item]")!.hidden) toggle(b, open); });
+      expandBtn.querySelector('[data-l="es"]')!.textContent = open ? "⇕ Contraer todo" : "⇕ Expandir todo";
+      expandBtn.querySelector('[data-l="en"]')!.textContent = open ? "⇕ Collapse all" : "⇕ Expand all";
     });
 
-    // --- Filtros ---
-    function matches(item: HTMLElement, filter: string): boolean {
-      if (filter === "all") return true;
-      if (filter === "hitos") return item.dataset.kind === "milestone";
-      if (filter === "trabajo") return item.dataset.kind === "job";
-      return item.dataset.source === filter;
-    }
+    // ── Copiar enlace a un hito ──
+    root.addEventListener("click", async (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tl-copy]");
+      if (!b) return;
+      const url = `${location.origin}${location.pathname}#${b.dataset.tlCopy}`;
+      try { await navigator.clipboard.writeText(url); } catch { history.replaceState(null, "", `#${b.dataset.tlCopy}`); }
+      b.classList.add("is-done");
+      setTimeout(() => b.classList.remove("is-done"), 1600);
+    });
 
-    function applyFilter(filter: string) {
+    // ── Filtros + búsqueda (git log --grep) ──
+    let filter = "all";
+    const matchesFilter = (it: HTMLElement) =>
+      filter === "all" ? true
+      : filter === "hitos" ? it.dataset.kind === "milestone"
+      : filter === "trabajo" ? it.dataset.kind === "job"
+      : it.dataset.source === filter;
+
+    function apply() {
+      const q = grep.value.trim().toLowerCase();
       let visible = 0;
-      items.forEach((item) => {
-        const show = matches(item, filter);
-        item.hidden = !show;
+      items.forEach((it) => {
+        const show = matchesFilter(it) && (!q || (it.dataset.search ?? "").includes(q));
+        it.hidden = !show;
         if (show) visible++;
-        if (!show) {
-          const btn = item.querySelector<HTMLButtonElement>("[data-tl-node]");
-          if (btn && btn.getAttribute("aria-expanded") === "true") toggle(btn, false);
+        else {
+          const btn = it.querySelector<HTMLButtonElement>("[data-tl-node]");
+          if (btn?.getAttribute("aria-expanded") === "true") toggle(btn, false);
         }
       });
-      // Oculta secciones de año sin hitos visibles
-      years.forEach((sec) => {
-        const anyVisible = Array.from(
-          sec.querySelectorAll<HTMLElement>("[data-tl-item]")
-        ).some((it) => !it.hidden);
-        sec.hidden = !anyVisible;
-      });
-      if (emptyEl) emptyEl.hidden = visible > 0;
-      if (countEl) {
-        const label =
-          filter === "all"
-            ? "entradas"
-            : filter === "hitos"
-              ? "hitos clave"
-              : filter === "trabajo"
-                ? "empleos y roles"
-                : filter;
-        countEl.textContent = `${visible} ${label}`;
-      }
+      const anyIn = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLElement>("[data-tl-item]")).some((i) => !i.hidden);
+      yearsEls.forEach((y) => (y.hidden = !anyIn(y)));
+      chaptersEls.forEach((c) => (c.hidden = !anyIn(c)));
+      emptyEl.hidden = visible > 0;
+      const label =
+        filter === "hitos" ? tr("hitos clave", "key milestones")
+        : filter === "trabajo" ? tr("empleos y roles", "jobs & roles")
+        : filter === "all" ? "commits"
+        : filter;
+      countEl.textContent = `${visible} ${label}`;
+      onScroll();
     }
 
-    filters.forEach((f) => {
-      f.addEventListener("click", () => {
-        filters.forEach((o) => {
-          o.classList.remove("is-active");
-          o.setAttribute("aria-pressed", "false");
-        });
-        f.classList.add("is-active");
-        f.setAttribute("aria-pressed", "true");
-        applyFilter(f.dataset.filter || "all");
-      });
-    });
+    filters.forEach((f) => f.addEventListener("click", () => {
+      filters.forEach((o) => { o.classList.toggle("is-active", o === f); o.setAttribute("aria-pressed", String(o === f)); });
+      filter = f.dataset.filter || "all";
+      apply();
+    }));
+    let grepTimer = 0;
+    grep.addEventListener("input", () => { clearTimeout(grepTimer); grepTimer = window.setTimeout(apply, 120); });
+    window.addEventListener("langchange", apply);
 
-    // --- Navegación por teclado (↑ / ↓ entre hitos visibles, Enter/Espacio expande) ---
-    function visibleNodes(): HTMLButtonElement[] {
-      return nodes.filter((n) => {
-        const item = n.closest<HTMLElement>("[data-tl-item]");
-        return item ? !item.hidden : true;
-      });
-    }
-
+    // ── Navegación por teclado (↑/↓ entre hitos visibles) ──
     root.addEventListener("keydown", (e) => {
-      const target = e.target as HTMLElement;
-      const btn = target.closest<HTMLButtonElement>("[data-tl-node]");
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-tl-node]");
       if (!btn) return;
-      const vis = visibleNodes();
-      const idx = vis.indexOf(btn);
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        (vis[idx + 1] ?? vis[0])?.focus();
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        (vis[idx - 1] ?? vis[vis.length - 1])?.focus();
-      } else if (e.key === "Home") {
-        e.preventDefault();
-        vis[0]?.focus();
-      } else if (e.key === "End") {
-        e.preventDefault();
-        vis[vis.length - 1]?.focus();
-      }
-      // Enter / Espacio ya los maneja el <button> nativo.
+      const vis = nodes.filter((n) => !n.closest<HTMLElement>("[data-tl-item]")!.hidden);
+      const i = vis.indexOf(btn);
+      const go = (b?: HTMLButtonElement) => { e.preventDefault(); b?.focus(); };
+      if (e.key === "ArrowDown") go(vis[i + 1] ?? vis[0]);
+      else if (e.key === "ArrowUp") go(vis[i - 1] ?? vis[vis.length - 1]);
+      else if (e.key === "Home") go(vis[0]);
+      else if (e.key === "End") go(vis[vis.length - 1]);
     });
 
-    // Estado inicial
-    applyFilter("all");
+    // ── Riel de eras: capítulo activo, progreso dentro de él y año actual ──
+    const segs = new Map(Array.from(document.querySelectorAll<HTMLElement>("[data-rail]")).map((s) => [s.dataset.rail!, s]));
+    const nowEl = document.querySelector<HTMLElement>("[data-tl-now]")!;
+    const rail = document.querySelector<HTMLElement>("[data-tl-rail]")!;
+    let ticking = false;
+    function onScroll() {
+      ticking = false;
+      const probe = window.innerHeight * 0.35;
+      let activeId = "";
+      chaptersEls.forEach((c) => {
+        const seg = segs.get(c.dataset.chapter!);
+        if (!seg) return;
+        const r = c.getBoundingClientRect();
+        const p = c.hidden ? 0 : Math.min(1, Math.max(0, (probe - r.top) / Math.max(1, r.height)));
+        seg.style.setProperty("--p", String(p));
+        if (!c.hidden && r.top <= probe && r.bottom > probe) activeId = c.dataset.chapter!;
+      });
+      segs.forEach((s, id) => s.classList.toggle("is-active", id === activeId));
+      let year = "";
+      for (const y of yearsEls) {
+        if (y.hidden) continue;
+        // el primer año de cada capítulo empieza en la portada del capítulo, no en su etiqueta
+        const chapter = y.closest<HTMLElement>("[data-chapter]")!;
+        const first = chapter.querySelector<HTMLElement>("[data-tl-year]:not([hidden])") === y;
+        if ((first ? chapter : y).getBoundingClientRect().top <= probe) year = y.dataset.tlYear!;
+      }
+      if (year && nowEl.textContent !== year) {
+        nowEl.textContent = year;
+        nowEl.classList.remove("tick"); void nowEl.offsetWidth; nowEl.classList.add("tick");
+      }
+      rail.classList.toggle("is-stuck", rail.getBoundingClientRect().top <= parseFloat(getComputedStyle(rail).top) + 1);
+    }
+    window.addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+
+    // ── Enlace directo a un hito (#h-…): abrirlo y llevarlo a la vista ──
+    function openFromHash() {
+      const id = decodeURIComponent(location.hash.slice(1));
+      const item = id.startsWith("h-") ? document.getElementById(id) : null;
+      if (!item) return;
+      const btn = item.querySelector<HTMLButtonElement>("[data-tl-node]");
+      if (btn) toggle(btn, true);
+      item.classList.add("in", "is-target");
+      requestAnimationFrame(() => item.scrollIntoView({ block: "center" }));
+    }
+    window.addEventListener("hashchange", openFromHash);
+
+    apply();
+    openFromHash();
   }
 </script>
 
 <style>
-  .tl-cmd {
-    color: var(--fg-bright);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--fg-dim);
-    border-radius: 5px;
-    padding: 1px 7px;
-    font-size: 0.9em;
-    white-space: nowrap;
-  }
+  .tl-cmd { color: var(--text-dim); }
 
-  .tl-h {
-    color: var(--accent);
-    font-size: 16px;
-    margin: 0 0 14px;
-    letter-spacing: 0.5px;
-  }
-  .tl-h-prompt { color: var(--fg-dim); margin-right: 6px; }
+  .tl-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+  .tl-stats > div { display: flex; flex-direction: column; padding: 12px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+  .tl-stats strong { font-size: 24px; color: var(--fg-bright); font-variant-numeric: tabular-nums; text-shadow: 0 0 16px var(--glow); }
+  .tl-stats > div > span { font-size: 12.5px; color: var(--text-dim); }
 
-  /* ---------------- Gráfico de barras ---------------- */
-  .tl-chart {
-    border: 1px solid var(--fg-dim);
-    border-radius: 10px;
-    padding: 18px 18px 14px;
-    margin: 26px 0 30px;
-    background: rgba(255, 255, 255, 0.02);
+  /* colores de las ramas */
+  .tl-root, .tl-legend { --lane-github: var(--fg); --lane-gitlab: var(--warn); --lane-work: var(--link); }
+  .tl-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-size: 12.5px; color: var(--text-dim); }
+  .tl-legend li { display: inline-flex; align-items: center; gap: 7px; }
+  .lg-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+  .lg-github { border-color: var(--lane-github); }
+  .lg-gitlab { border-color: var(--lane-gitlab); }
+  .lg-work { border-color: var(--lane-work); background: var(--lane-work); border-radius: 3px; }
+  .lg-hito { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 8px var(--glow); }
+
+  .tl-h { color: var(--fg-bright); font-size: 15px; margin: 0 0 16px; }
+  .tl-h-prompt { color: var(--accent); margin-right: 6px; }
+
+  /* ── Gráfico ── */
+  .tl-chart { padding: 22px 22px 16px; margin: 0 0 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+  .tl-bars { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .tl-bar-link {
+    display: grid; grid-template-columns: 3.5ch 1fr auto; align-items: center; gap: 12px;
+    padding: 3px 6px; margin: 0 -6px; border-radius: 8px; text-decoration: none; transition: background 0.2s;
   }
-  .tl-bars { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-  .tl-bar-row {
-    display: grid;
-    grid-template-columns: 3.5ch 1fr auto;
-    align-items: center;
-    gap: 10px;
-  }
-  .tl-bar-year { color: var(--fg-dim); font-size: 13px; text-align: right; }
-  .tl-bar-track {
-    height: 16px;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 3px;
-    overflow: hidden;
-  }
+  a.tl-bar-link:hover { background: var(--surface-hi); }
+  .tl-bar-year { color: var(--text-dim); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+  a.tl-bar-link:hover .tl-bar-year { color: var(--era); }
+  .tl-bar-track { height: 14px; background: var(--surface-hi); border-radius: 99px; overflow: hidden; }
   .tl-bar-fill {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    min-width: 2px;
-    background: var(--fg-dim);
-    border-radius: 3px;
-    transition: filter 0.2s;
-    overflow: hidden;
+    display: block; height: 100%; min-width: 2px; border-radius: 99px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--era) 45%, transparent), var(--era));
+    transform-origin: 0 50%; transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s;
   }
-  .tl-bar-blocks {
-    color: rgba(0, 0, 0, 0.35);
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: -1px;
-    white-space: nowrap;
-    padding-left: 2px;
-    user-select: none;
-  }
-  .tl-bar-num {
-    color: var(--fg-bright);
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    min-width: 4ch;
-  }
-  .tl-bar-flag { color: var(--warn); font-weight: 700; font-size: 12px; }
-  .is-peak .tl-bar-fill {
-    background: var(--accent);
-    box-shadow: 0 0 12px var(--glow), 0 0 4px var(--glow);
-  }
-  .is-peak .tl-bar-year,
-  .is-peak .tl-bar-num { color: var(--accent); text-shadow: 0 0 8px var(--glow); }
-  .tl-chart-note { font-size: 12px; margin-top: 12px; }
+  a.tl-bar-link:hover .tl-bar-fill { filter: brightness(1.25); }
+  :global(.reveal-ready) .tl-chart:not(.in) .tl-bar-fill { transform: scaleX(0); }
+  .tl-bar-row:nth-child(2) .tl-bar-fill { transition-delay: 60ms; }
+  .tl-bar-row:nth-child(3) .tl-bar-fill { transition-delay: 120ms; }
+  .tl-bar-row:nth-child(4) .tl-bar-fill { transition-delay: 180ms; }
+  .tl-bar-row:nth-child(5) .tl-bar-fill { transition-delay: 240ms; }
+  .tl-bar-row:nth-child(6) .tl-bar-fill { transition-delay: 300ms; }
+  .tl-bar-row:nth-child(7) .tl-bar-fill { transition-delay: 360ms; }
+  .tl-bar-row:nth-child(8) .tl-bar-fill { transition-delay: 420ms; }
+  .tl-bar-row:nth-child(9) .tl-bar-fill { transition-delay: 480ms; }
+  .tl-bar-num { color: var(--fg-bright); font-size: 13px; font-weight: 700; white-space: nowrap; min-width: 4ch; font-variant-numeric: tabular-nums; }
+  .tl-bar-flag { color: var(--warn); font-size: 12px; }
+  .is-peak .tl-bar-fill { box-shadow: 0 0 14px color-mix(in srgb, var(--era) 60%, transparent); }
+  .tl-chart-note { font-size: 12px; margin-top: 14px; color: var(--text-dim); }
 
-  /* ---------------- Filtros ---------------- */
-  .tl-filters {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: 0 0 24px;
+  /* ── Riel de eras ── */
+  .tl-rail {
+    position: sticky; top: var(--nav-h); z-index: 20;
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 -20px 18px; padding: 10px 20px;
+    background: color-mix(in srgb, var(--bg-deep) 88%, transparent);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid transparent; transition: border-color 0.25s;
   }
-  .tl-filters-label { font-size: 13px; }
-  .tl-filter {
-    cursor: pointer;
-    background: transparent;
-    color: var(--fg-dim);
-    border: 1px solid var(--fg-dim);
-    border-radius: 6px;
-    padding: 4px 11px;
-    font: inherit;
-    font-size: 13px;
-    transition: all 0.15s;
+  .tl-rail.is-stuck { border-bottom-color: var(--border); }
+  .tl-rail-track { flex: 1; display: flex; gap: 4px; min-width: 0; }
+  .tl-rail-seg {
+    position: relative; flex: 1 1 0; min-width: 34px; height: 30px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 8px; text-decoration: none; font-size: 11.5px; color: var(--text-dim);
+    background: color-mix(in srgb, var(--era) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--era) 25%, transparent);
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
   }
-  .tl-filter:hover { color: var(--fg-bright); border-color: var(--fg-bright); }
-  .tl-filter.is-active {
-    color: var(--bg);
-    background: var(--accent);
-    border-color: var(--accent);
-    font-weight: 700;
-    box-shadow: 0 0 12px var(--glow);
+  .tl-rail-fill {
+    position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(var(--p, 0));
+    background: color-mix(in srgb, var(--era) 30%, transparent); transition: transform 0.15s linear;
   }
-  .tl-count { font-size: 12.5px; margin-left: auto; }
+  .tl-rail-emoji, .tl-rail-label { position: relative; white-space: nowrap; }
+  .tl-rail-seg:hover { color: var(--fg-bright); border-color: var(--era); }
+  .tl-rail-seg.is-active { color: var(--fg-bright); border-color: var(--era); box-shadow: 0 0 16px -4px var(--era); }
+  .tl-rail-year {
+    flex-shrink: 0; min-width: 4ch; text-align: right; font-weight: 800; font-size: 20px;
+    color: var(--fg-bright); font-variant-numeric: tabular-nums; text-shadow: 0 0 14px var(--glow);
+  }
+  .tl-rail-year.tick { animation: tick 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes tick { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-  /* ---------------- Timeline ---------------- */
-  .tl-timeline { position: relative; }
-  .tl-year { margin: 0 0 8px; }
-  .tl-year[hidden] { display: none; }
-
-  .tl-year-head {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding: 10px 0 6px;
-    position: sticky;
-    top: 52px;
-    background: linear-gradient(to bottom, rgba(5, 10, 6, 0.96) 70%, transparent);
-    z-index: 5;
-    backdrop-filter: blur(4px);
+  /* ── Controles ── */
+  .tl-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 30px; }
+  .tl-grep {
+    flex: 1 1 340px; display: flex; align-items: center; padding: 0 14px; height: 40px;
+    border-radius: 10px; background: var(--bg-deep); border: 1px solid var(--border); transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .tl-year-num {
-    color: var(--era-color, var(--accent));
-    font-weight: 800;
-    font-size: 22px;
-    text-shadow: 0 0 12px var(--glow);
+  .tl-grep:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .tl-grep-prompt { color: var(--accent); font-size: 13px; white-space: nowrap; }
+  .tl-grep input {
+    flex: 1; min-width: 0; height: 100%; padding: 0 4px; border: none; outline: none; background: transparent;
+    font: inherit; font-size: 13.5px; color: var(--fg-bright);
   }
-  .tl-year-era { color: var(--fg-dim); font-size: 13px; }
-  .tl-era-emoji { margin-right: 4px; }
-
-  .tl-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 0 0 4px;
-    border-left: 2px solid var(--fg-dim);
-    padding-left: 0;
+  .tl-grep input::placeholder { color: var(--text-dim); opacity: 0.6; }
+  .tl-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tl-filter, .tl-expand {
+    cursor: pointer; font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 99px;
+    color: var(--text); background: var(--surface); border: 1px solid var(--border); transition: all 0.2s;
   }
-  .tl-item[hidden] { display: none; }
+  .tl-filter:hover, .tl-expand:hover { color: var(--fg-bright); border-color: var(--accent); }
+  .tl-filter.is-active { color: var(--bg-deep); background: var(--accent); border-color: var(--accent); font-weight: 700; box-shadow: 0 6px 20px -10px var(--glow); }
+  .tl-tools { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+  .tl-count { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; }
 
-  /* Nodo clicable (botón real) */
-  .tl-node {
-    width: 100%;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    text-align: left;
-    background: transparent;
-    border: none;
-    border-left: 2px solid transparent;
-    margin-left: -2px;
-    padding: 9px 10px 9px 16px;
-    cursor: pointer;
-    font: inherit;
-    color: var(--fg);
-    transition: background 0.15s, border-color 0.15s;
+  /* ── Capítulos ── */
+  .tl-chapter { margin-bottom: 40px; scroll-margin-top: calc(var(--nav-h) + 64px); }
+  .tl-chapter[hidden], .tl-year[hidden], .tl-item[hidden] { display: none; }
+  .tl-chapter-head {
+    display: flex; gap: 20px; align-items: flex-start; padding: 26px 26px 22px; margin-bottom: 18px;
+    border-radius: 20px; border: 1px solid color-mix(in srgb, var(--era) 35%, transparent);
+    background:
+      radial-gradient(520px circle at 0% 0%, color-mix(in srgb, var(--era) 18%, transparent), transparent 70%),
+      var(--surface);
   }
-  .tl-node:hover { background: rgba(255, 255, 255, 0.03); }
-  .tl-node[aria-expanded="true"] { border-left-color: var(--accent); background: rgba(255, 255, 255, 0.03); }
-  .tl-node:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+  .tl-chapter-emoji {
+    flex-shrink: 0; display: grid; place-items: center; width: 58px; height: 58px; font-size: 30px; border-radius: 16px;
+    background: color-mix(in srgb, var(--era) 16%, transparent); border: 1px solid color-mix(in srgb, var(--era) 35%, transparent);
+  }
+  .tl-chapter-text { flex: 1; min-width: 0; }
+  .tl-chapter-kicker { font-size: 12.5px; color: var(--era); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .tl-chapter-title { margin: 4px 0 8px; font-size: clamp(21px, 3vw, 28px); line-height: 1.2; color: var(--fg-bright); }
+  .tl-chapter-summary { font-family: var(--sans); font-size: 15.5px; line-height: 1.65; color: var(--text); max-width: 720px; }
+  .tl-chapter-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 14px; font-size: 13px; color: var(--text-dim); }
+  .tl-chapter-meta strong { color: var(--fg-bright); }
+  .tl-chapter-post { margin-left: auto; color: var(--era); text-decoration: none; font-weight: 700; }
+  .tl-chapter-post span { display: inline-block; transition: transform 0.25s; }
+  .tl-chapter-post:hover span { transform: translateX(4px); }
 
+  /* ── Grafo: tres carriles verticales (GitHub · GitLab · Trabajo) ──
+     Las líneas se dibujan como fondo de cada bloque para que sean continuas. */
+  .tl-root { --g: 56px; --x-github: 12px; --x-gitlab: 28px; --x-work: 44px; }
+  .tl-year { scroll-margin-top: calc(var(--nav-h) + 64px); }
+  .tl-list, .tl-tag, .tl-head {
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--lane-github) 35%, transparent), color-mix(in srgb, var(--lane-github) 35%, transparent)),
+      linear-gradient(color-mix(in srgb, var(--lane-gitlab) 30%, transparent), color-mix(in srgb, var(--lane-gitlab) 30%, transparent)),
+      linear-gradient(color-mix(in srgb, var(--lane-work) 30%, transparent), color-mix(in srgb, var(--lane-work) 30%, transparent));
+    background-size: 2px 100%;
+    background-repeat: no-repeat;
+    background-position: calc(var(--x-github) - 1px) 0, calc(var(--x-gitlab) - 1px) 0, calc(var(--x-work) - 1px) 0;
+  }
+  .tl-list { list-style: none; display: flex; flex-direction: column; }
+
+  /* etiqueta de año, como un `git tag` sobre el grafo */
+  .tl-tag { padding: 10px 0 10px var(--g); }
+  .tl-tag span {
+    display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 99px;
+    color: var(--era); background: color-mix(in srgb, var(--era) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--era) 40%, transparent);
+  }
+
+  .tl-item { position: relative; display: grid; grid-template-columns: var(--g) 1fr; padding: 4px 0; scroll-margin-top: calc(var(--nav-h) + 80px); }
+  .tl-graph { position: relative; }
   .tl-dot {
-    flex: 0 0 auto;
-    width: 9px; height: 9px;
-    margin-top: 6px; margin-left: -21px;
-    border-radius: 50%;
-    background: var(--bg);
-    border: 2px solid var(--fg-dim);
-    transition: all 0.15s;
+    position: absolute; top: 20px; left: calc(var(--x, var(--x-github)) - 7px);
+    width: 14px; height: 14px; border-radius: 50%; z-index: 1;
+    background: var(--bg-deep); border: 2px solid var(--lane, var(--lane-github)); transition: all 0.2s;
   }
-  .tl-node--github .tl-dot { border-color: var(--fg); }
-  .tl-node--gitlab .tl-dot { border-color: var(--warn); }
-  .tl-node.is-hito .tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
-  .tl-node[aria-expanded="true"] .tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--glow); }
+  /* rama horizontal: del commit a su tarjeta */
+  .tl-dot::after {
+    content: ""; position: absolute; top: 4px; left: 12px; height: 2px;
+    width: calc(var(--g) - var(--x, var(--x-github)) - 6px);
+    background: linear-gradient(90deg, var(--lane, var(--lane-github)), transparent);
+    opacity: 0.45;
+  }
+  .lane-github { --x: var(--x-github); --lane: var(--lane-github); }
+  .lane-gitlab { --x: var(--x-gitlab); --lane: var(--lane-gitlab); }
+  .lane-work { --x: var(--x-work); --lane: var(--lane-work); }
+  .lane-work .tl-dot { border-radius: 4px; background: var(--lane); box-shadow: 0 0 10px color-mix(in srgb, var(--lane) 50%, transparent); }
+  .tl-item:has(.is-hito) .tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 12px var(--glow); }
+  .tl-item:has([aria-expanded="true"]) .tl-dot { transform: scale(1.25); box-shadow: 0 0 14px var(--lane); }
 
-  .tl-node-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .tl-card { min-width: 0; }
+  .tl-node {
+    width: 100%; display: flex; align-items: flex-start; gap: 12px; text-align: left;
+    padding: 12px 16px; border-radius: 12px; cursor: pointer; font: inherit; color: var(--text);
+    background: transparent; border: 1px solid transparent; transition: background 0.2s, border-color 0.2s;
+  }
+  .tl-node:hover { background: var(--surface); border-color: var(--border); }
+  .tl-node[aria-expanded="true"] {
+    background: var(--surface-hi); border-color: color-mix(in srgb, var(--lane) 45%, transparent);
+    border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  }
+  .tl-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tl-item.is-target .tl-node { animation: target 1.6s ease 2; }
+  @keyframes target { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); } }
+
+  .tl-node-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .tl-node-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .tl-node-date { color: var(--fg-dim); font-size: 12px; }
+  .tl-node-date { color: var(--text-dim); font-size: 12px; }
+  .tl-src { font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 99px; border: 1px solid currentColor; line-height: 1.4; }
+  .tl-src--github { color: var(--lane-github); }
+  .tl-src--gitlab { color: var(--lane-gitlab); }
+  .tl-flag { font-size: 11px; font-weight: 700; }
+  .tl-flag--hito, .tl-flag--now { color: var(--accent); }
+  .tl-flag--work { color: var(--lane-work); }
+  .tl-flag--priv { color: var(--warn); }
+  .tl-node-title { color: var(--fg-bright); font-size: 15px; line-height: 1.4; }
+  .is-hito .tl-node-title, .is-job .tl-node-title { font-weight: 700; }
+  .tl-node-org { color: var(--text-dim); font-weight: 400; font-size: 13.5px; }
+  .tl-caret { flex: 0 0 auto; color: var(--text-dim); font-size: 12px; margin-top: 4px; transition: transform 0.2s, color 0.2s; }
+  .tl-node[aria-expanded="true"] .tl-caret { transform: rotate(90deg); color: var(--lane); }
 
-  /* Distintivo de fuente (sutil, distinto por plataforma) */
-  .tl-src {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 0 5px;
-    border-radius: 3px;
-    border: 1px solid currentColor;
-    line-height: 1.5;
-  }
-  .tl-src--github { color: var(--fg); }
-  .tl-src--gitlab { color: var(--warn); }
-
-  .tl-hito-flag { color: var(--accent); font-size: 11px; font-weight: 700; text-shadow: 0 0 6px var(--glow); }
-
-  /* ---- Nodo de trabajo (distintivo propio, distinto de repos/hitos) ---- */
-  .tl-node--work .tl-dot { border-color: var(--link); }
-  .tl-node.is-job .tl-dot {
-    background: var(--link);
-    border-color: var(--link);
-    box-shadow: 0 0 8px var(--link);
-    border-radius: 2px; /* cuadrado sutil: el trabajo se ve distinto al repo */
-  }
-  .tl-node.is-job[aria-expanded="true"] { border-left-color: var(--link); }
-  .tl-node.is-job[aria-expanded="true"] .tl-dot { box-shadow: 0 0 10px var(--link); }
-  .tl-node.is-job[aria-expanded="true"] .tl-caret { color: var(--link); }
-  .tl-work-flag { color: var(--link); font-size: 11px; font-weight: 700; }
-  .tl-priv-flag { color: var(--warn); font-size: 11px; font-weight: 700; }
-  .tl-now-flag { color: var(--accent); font-size: 11px; font-weight: 700; text-shadow: 0 0 6px var(--glow); }
-  .tl-node.is-job .tl-node-title { color: var(--fg-bright); font-weight: 700; }
-  .tl-node-org { color: var(--fg-dim); font-weight: 400; font-size: 13.5px; }
-
-  /* ---- Panel de trabajo: nota y stack ---- */
-  .tl-note { color: var(--fg-dim); font-size: 13px; line-height: 1.55; margin: 0 0 10px; font-style: italic; }
-  .tl-tech { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; margin: 0 0 6px; }
-  .tl-tech-label { font-size: 12.5px; margin-right: 4px; }
-  .tl-chip {
-    font-size: 12px;
-    color: var(--fg);
-    border: 1px solid var(--fg-dim);
-    border-radius: 4px;
-    padding: 1px 8px;
-    background: rgba(255, 255, 255, 0.03);
-    white-space: nowrap;
-  }
-
-  .tl-node-title {
-    color: var(--fg-bright);
-    font-size: 14.5px;
-    line-height: 1.4;
-  }
-  .tl-node.is-hito .tl-node-title { color: var(--fg-bright); font-weight: 700; }
-  .tl-node:hover .tl-node-title { text-shadow: 0 0 8px var(--glow); }
-
-  .tl-caret {
-    flex: 0 0 auto;
-    color: var(--fg-dim);
-    font-size: 12px;
-    margin-top: 4px;
-    transition: transform 0.18s, color 0.15s;
-  }
-  .tl-node[aria-expanded="true"] .tl-caret { transform: rotate(90deg); color: var(--accent); }
-
-  /* Panel de detalle */
   .tl-panel {
-    padding: 4px 12px 14px 28px;
-    animation: tlReveal 0.2s ease both;
+    padding: 4px 18px 16px; border-radius: 0 0 12px 12px;
+    background: var(--surface-hi); border: 1px solid color-mix(in srgb, var(--lane) 45%, transparent); border-top: none;
+    animation: tlReveal 0.25s ease both;
   }
   .tl-panel[hidden] { display: none; }
-  @keyframes tlReveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  @keyframes tlReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .tl-desc { font-family: var(--sans); font-size: 15.5px; line-height: 1.7; color: var(--text); margin: 0 0 12px; }
+  .tl-note { font-family: var(--sans); color: var(--text-dim); font-size: 14px; line-height: 1.6; margin: 0 0 12px; font-style: italic; }
+  .tl-chips { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .tl-chips-label { font-size: 12.5px; color: var(--text-dim); margin-right: 2px; }
+  .tl-chip { font-size: 12px; color: var(--accent); padding: 2px 9px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 8%, transparent); white-space: nowrap; }
+  .tl-chip--repo { color: var(--fg-bright); background: var(--bg-deep); border: 1px solid var(--border); }
+  .tl-muted { font-size: 12.5px; color: var(--text-dim); margin: 0 0 8px; }
+  .tl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
+  .tl-open { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .tl-open:hover { color: var(--fg-bright); }
+  .tl-copy { cursor: pointer; font: inherit; font-size: 12.5px; color: var(--text-dim); background: none; border: none; padding: 0; }
+  .tl-copy:hover { color: var(--fg-bright); }
+  .tl-copy.is-done span { display: none !important; }
+  .tl-copy.is-done::after { content: "✓"; color: var(--accent); font-weight: 700; }
 
-  .tl-desc { color: var(--fg); line-height: 1.65; margin: 0 0 10px; }
-  .tl-repos { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px; margin: 0 0 6px; }
-  .tl-repos-label { font-size: 12.5px; margin-right: 6px; }
-  .tl-repo {
-    color: var(--link);
-    text-decoration: none;
-    border-bottom: 1px dotted var(--link);
-    font-size: 13px;
+  /* ── HEAD → main: el final de la historia… por ahora ── */
+  .tl-head { display: grid; grid-template-columns: var(--g) 1fr; padding: 18px 0 8px; background-size: 2px 34px; }
+  .tl-dot--head {
+    top: 30px; left: calc(var(--x-github) - 9px); width: 18px; height: 18px;
+    background: var(--accent); border-color: var(--accent); animation: headPulse 2s infinite;
   }
-  .tl-repo:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
-  .tl-repo--plain { color: var(--fg-dim); border-bottom: none; }
-  .tl-sep { color: var(--fg-dim); }
-  .tl-open a { color: var(--accent); text-decoration: none; font-size: 13px; border-bottom: 1px dotted var(--accent); }
-  .tl-open a:hover { color: var(--fg-bright); text-shadow: 0 0 8px var(--glow); }
+  .tl-dot--head::after { display: none; }
+  @keyframes headPulse {
+    0% { box-shadow: 0 0 0 0 var(--glow); }
+    70% { box-shadow: 0 0 0 14px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .tl-head > div { padding: 18px 22px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); background: var(--surface); }
+  .tl-head-ref { font-weight: 800; color: var(--fg-bright); }
+  .tl-head-label { color: var(--bg-deep); background: var(--accent); padding: 1px 8px; border-radius: 6px; margin-right: 4px; }
+  .tl-head-text { margin-top: 8px; font-family: var(--sans); color: var(--text); }
+  .tl-head-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font-size: 13px; }
+  .tl-head-links a { color: var(--link); text-decoration: none; }
+  .tl-head-links a:hover { color: var(--fg-bright); }
 
-  .tl-empty { text-align: center; padding: 30px 0; font-size: 14px; }
+  .tl-empty { text-align: center; padding: 30px 0; font-size: 14px; color: var(--text-dim); }
   .tl-empty[hidden] { display: none; }
 
+  @media (max-width: 760px) {
+    .tl-rail-label { display: none; }
+    .tl-rail-seg { min-width: 0; }
+  }
   @media (max-width: 640px) {
-    .tl-year-head { top: 48px; }
-    .tl-bar-row { grid-template-columns: 3ch 1fr auto; gap: 7px; }
-    .tl-bar-num { min-width: 3ch; }
-    .tl-count { margin-left: 0; width: 100%; }
-    .tl-panel { padding-left: 20px; }
+    .tl-chart { padding: 18px 14px 14px; }
+    .tl-bar-link { grid-template-columns: 3ch 1fr auto; gap: 8px; }
+    .tl-rail { margin: 0 -16px 16px; padding: 8px 16px; }
+    .tl-rail-year { font-size: 16px; }
+    .tl-tools { margin-left: 0; width: 100%; justify-content: space-between; }
+    .tl-chapter-head { flex-direction: column; gap: 12px; padding: 20px 18px 18px; }
+    .tl-chapter-emoji { width: 46px; height: 46px; font-size: 24px; }
+    .tl-chapter-post { margin-left: 0; }
+    .tl-root { --g: 40px; --x-github: 8px; --x-gitlab: 19px; --x-work: 30px; }
+    .tl-dot { width: 12px; height: 12px; left: calc(var(--x, var(--x-github)) - 6px); }
+    .tl-node { padding: 10px 12px; }
+    .tl-panel { padding: 4px 12px 14px; }
+    .tl-stats > div { flex: 1 1 40%; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .tl-panel, .tl-caret, .tl-bar-fill { animation: none !important; transition: none !important; }
+    .tl-panel, .tl-caret, .tl-bar-fill, .tl-rail-fill, .tl-rail-year, .tl-dot--head, .tl-item.is-target .tl-node { animation: none !important; transition: none !important; }
+    :global(.reveal-ready) .tl-chart:not(.in) .tl-bar-fill { transform: none; }
   }
 </style>

@@ -1,199 +1,398 @@
 ---
-import { PROFILE as P } from "../data/profile";
+import { PROFILE, PROFILE_EN, type Profile } from "../data/profile";
 import type { GithubStats } from "../data/github";
 
 const { stats } = Astro.props as { stats: GithubStats | null };
 const maxL = stats ? Math.max(1, ...stats.topLanguages.map((l) => l.count)) : 1;
+const yearsCoding = stats ? new Date().getFullYear() - stats.createdYear : null;
 
-const aboutParas: string[] = [];
-let cur: string[] = [];
-for (const l of P.about) {
-  if (l === "") { if (cur.length) { aboutParas.push(cur.join(" ")); cur = []; } }
-  else cur.push(l);
+// Textos de interfaz de la versión visual. Ambas versiones (ES y EN) se renderizan
+// en build: el JS solo alterna cuál está visible (sin duplicar el HTML en un template JS).
+const LABELS = {
+  es: {
+    nav: { about: "Sobre mí", exp: "Experiencia", proj: "Proyectos", skills: "Habilidades", contact: "Contacto" },
+    available: "Abierto a nuevas oportunidades",
+    cv: "Descargar CV", cvOther: "CV (EN)", cvOtherLang: "en",
+    terminal: "Terminal", backTerminal: "⌨ Volver a la terminal",
+    langBtn: "EN", langTitle: "Switch to English",
+    themeTitle: "Cambiar tema de color",
+    about: "Sobre mí", now: "Ahora mismo", skills: "Habilidades", exp: "Experiencia",
+    proj: "Proyectos", gallery: "Trabajo en imágenes", edu: "Educación", certs: "Certificaciones",
+    recs: "Lo que dicen de mí", contact: "Hablemos",
+    contactLead: "¿Tienes un proyecto, una vacante o una idea? Escríbeme y conversemos.",
+    roles: "cargos profesionales",
+    stats: { repos: "repos públicos", years: "años programando", certs: "certificaciones", stars: "estrellas", followers: "seguidores", since: "en GitHub desde" },
+    ghLangs: "Lenguajes más usados",
+    seeGh: "ver en GitHub",
+    notes: "apuntes y avances públicos",
+    talkCaption: "SLUD XXII — charla «El futuro de Linux», como ex-Director del GLUD 🐧",
+    top: "Volver arriba",
+    navLabel: "Secciones",
+  },
+  en: {
+    nav: { about: "About", exp: "Experience", proj: "Projects", skills: "Skills", contact: "Contact" },
+    available: "Open to new opportunities",
+    cv: "Download CV", cvOther: "CV (ES)", cvOtherLang: "es",
+    terminal: "Terminal", backTerminal: "⌨ Back to the terminal",
+    langBtn: "ES", langTitle: "Cambiar a español",
+    themeTitle: "Change color theme",
+    about: "About me", now: "Right now", skills: "Skills", exp: "Experience",
+    proj: "Projects", gallery: "Work in pictures", edu: "Education", certs: "Certifications",
+    recs: "What people say about me", contact: "Let's talk",
+    contactLead: "Got a project, a role or an idea? Drop me a line and let's talk.",
+    roles: "professional roles",
+    stats: { repos: "public repos", years: "years coding", certs: "certifications", stars: "stars", followers: "followers", since: "on GitHub since" },
+    ghLangs: "Most used languages",
+    seeGh: "view on GitHub",
+    notes: "public notes & progress",
+    talkCaption: "SLUD XXII — talk “The future of Linux”, as former GLUD Director 🐧",
+    top: "Back to top",
+    navLabel: "Sections",
+  },
+} as const;
+
+const versions: { lang: "es" | "en"; P: Profile }[] = [
+  { lang: "es", P: PROFILE },
+  { lang: "en", P: PROFILE_EN },
+];
+
+function paragraphs(lines: string[]): string[] {
+  const out: string[] = [];
+  let cur: string[] = [];
+  for (const l of lines) {
+    if (l === "") { if (cur.length) { out.push(cur.join(" ")); cur = []; } }
+    else cur.push(l);
+  }
+  if (cur.length) out.push(cur.join(" "));
+  return out;
 }
-if (cur.length) aboutParas.push(cur.join(" "));
+
+// Socials principales en el hero; el resto aparece completo en Contacto.
+const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
 ---
 
 <!-- Un solo <main> visible a la vez: la terminal o esta vista (atributo hidden conmutado por JS). -->
 <main class="gui" id="gui" aria-label="Versión visual del portafolio" hidden>
-  <div class="gui-inner">
-    
-    <header class="gui-hero">
-      <img class="gui-avatar lb" data-gallery="gui" data-caption={P.name} src={P.avatar} alt={`Retrato de ${P.name}`}
-        width="631" height="700" loading="lazy" onerror="this.style.display='none'" />
-      <div class="gui-hero-text">
-        <h1 class="gui-name">{P.name}</h1>
-        <p class="gui-role">{P.role}</p>
-        <p class="gui-title">{P.title}</p>
-        <p class="gui-loc">📍 {P.location}</p>
-        <blockquote class="gui-quote">“{P.tagline}”</blockquote>
-        <div class="gui-actions">
-          <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_es.pdf" target="_blank" rel="noopener noreferrer">📄 Descargar CV</a>
-          <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_en.pdf" target="_blank" rel="noopener noreferrer">📄 CV (EN)</a>
-          <a class="gui-btn" href="/blog">📝 Blog</a>
-          <a class="gui-btn" href="/timeline">🕰️ Timeline</a>
-          <button class="gui-btn gui-back" data-gui-back type="button">⌨ Versión terminal</button>
-        </div>
-        <div class="gui-socials">
-          {P.socials.map((s) => (
-            <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.name}>
-              <span>{s.icon}</span> {s.name}
-            </a>
-          ))}
-        </div>
-      </div>
-    </header>
+  <div class="gui-progress" aria-hidden="true"><span></span></div>
 
-    <section class="gui-section">
-      <h2>Sobre mí</h2>
-      {aboutParas.map((p) => <p>{p}</p>)}
-      <figure class="gui-figure">
-        <img class="lb" data-gallery="gui" data-caption='SLUD XXII — charla "El futuro de Linux", como ex-Director del GLUD 🐧'
-          src="/assets/photos/glud-talk.jpg" alt="Juan Felipe presentando en el SLUD XXII"
-          width="1000" height="755" loading="lazy" />
-        <figcaption>SLUD XXII — charla “El futuro de Linux”, como ex-Director del GLUD 🐧</figcaption>
-      </figure>
-    </section>
-
-    <section class="gui-section">
-      <h2>Ahora mismo</h2>
-      <ul class="gui-now">
-        {P.now.map((n) => <li>{n}</li>)}
-      </ul>
-    </section>
-
-    <section class="gui-section">
-      <h2>Habilidades</h2>
-      <div class="gui-skills">
-        {Object.entries(P.skills).map(([cat, items]) => (
-          <div class="gui-skillset">
-            <h3>{cat}</h3>
-            <div>{items.map((s) => <span class="gui-badge">{s}</span>)}</div>
+  {versions.map(({ lang, P }) => {
+    const L = LABELS[lang];
+    const id = (s: string) => `${lang}-${s}`;
+    const navItems = [
+      ["about", L.nav.about], ["experience", L.nav.exp], ["projects", L.nav.proj],
+      ["skills", L.nav.skills], ["contact", L.nav.contact],
+    ] as const;
+    return (
+      <div class="gui-inner" data-lang={lang} lang={lang} hidden={lang !== "es"}>
+        <nav class="gui-nav" aria-label={L.navLabel}>
+          <a class="gui-brand" href={`#${id("top")}`}><span class="gui-brand-prompt">~/</span>{P.handle}<span class="gui-brand-caret" aria-hidden="true">_</span></a>
+          <div class="gui-nav-links">
+            {navItems.map(([key, label]) => <a href={`#${id(key)}`} data-spy={id(key)}>{label}</a>)}
           </div>
-        ))}
-      </div>
-    </section>
+          <div class="gui-nav-actions">
+            <button type="button" class="gui-icon-btn" data-gui-lang title={L.langTitle} aria-label={L.langTitle}>🌐 {L.langBtn}</button>
+            <button type="button" class="gui-icon-btn" data-gui-theme title={L.themeTitle} aria-label={L.themeTitle}>◐</button>
+            <button type="button" class="gui-icon-btn gui-icon-accent" data-gui-back title={L.backTerminal} aria-label={L.backTerminal}><span class="gui-term-icon" aria-hidden="true">&gt;_</span> <span class="gui-hide-sm">{L.terminal}</span></button>
+          </div>
+        </nav>
 
-    <section class="gui-section">
-      <h2>Experiencia</h2>
-      <div class="gui-timeline">
-        {P.experience.map((e) => (
-          <div class="gui-entry">
-            <div class="gui-entry-head">
-              <span class="gui-entry-role">{e.role}</span>
-              <span class="gui-entry-period">{e.period}</span>
+        <header class="gui-hero" id={id("top")}>
+          <div class="gui-hero-text">
+            <p class="gui-kicker" data-reveal><span class="gui-status-dot" aria-hidden="true"></span>{L.available}</p>
+            {lang === "es" ? <h1 class="gui-name" data-reveal>{P.name}</h1> : <h2 class="gui-name" data-reveal>{P.name}</h2>}
+            <p class="gui-title" data-reveal>{P.title}</p>
+            <p class="gui-role" data-reveal>{P.role}</p>
+            <p class="gui-loc" data-reveal>📍 {P.location} <span class="gui-sep">·</span> <em>“{P.tagline}”</em></p>
+            <div class="gui-actions" data-reveal>
+              <a class="gui-btn gui-btn-primary" href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}</a>
+              <a class="gui-btn" href={`#${id("contact")}`}>✉️ {L.contact}</a>
+              <a class="gui-btn" href="/blog/">📝 Blog</a>
+              <a class="gui-btn" href="/timeline/">🕰️ Timeline</a>
             </div>
-            <div class="gui-entry-company">{e.company}</div>
-            <p>{e.lines.join(" ")}</p>
+            <div class="gui-socials gui-socials-compact" data-reveal>
+              {P.socials.filter((s) => MAIN_SOCIALS.includes(s.name)).map((s) => (
+                <a href={s.url} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{s.icon}</span> {s.name}</a>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
-    </section>
-
-    <section class="gui-section">
-      <h2>Proyectos</h2>
-      <div class="gui-cards">
-        {P.projects.map((pr) => (
-          <a class="gui-card" href={pr.url} target="_blank" rel="noopener noreferrer">
-            <h3>{pr.name}</h3>
-            <span class="gui-card-tech">{pr.tech}</span>
-            <p>{pr.desc}</p>
-            <span class="gui-card-link">ver en GitHub ↗</span>
-          </a>
-        ))}
-      </div>
-    </section>
-
-    <section class="gui-section">
-      <h2>Trabajo en imágenes</h2>
-      <div class="gui-gallery">
-        {P.gallery.map((g) => (
-          <figure>
-            <img class="lb" data-gallery="work" data-caption={g.caption} src={g.src} alt={g.caption} loading="lazy" />
-            <figcaption>{g.caption}</figcaption>
-          </figure>
-        ))}
-      </div>
-    </section>
-
-    {stats && (
-      <section class="gui-section">
-        <h2>GitHub</h2>
-        <div class="gh-stats">
-          <div class="gh-grid">
-            <div class="gh-stat"><span class="gh-num">{stats.publicRepos}</span><span class="gh-lbl">repositorios públicos</span></div>
-            <div class="gh-stat"><span class="gh-num">★ {stats.totalStars}</span><span class="gh-lbl">estrellas totales</span></div>
-            <div class="gh-stat"><span class="gh-num">{stats.followers}</span><span class="gh-lbl">seguidores</span></div>
-            <div class="gh-stat"><span class="gh-num">{stats.createdYear}</span><span class="gh-lbl">programando desde</span></div>
+          <div class="gui-hero-photo" data-reveal>
+            <span class="gui-orbit" aria-hidden="true"></span>
+            <img class="gui-avatar lb" data-gallery={`hero-${lang}`} data-caption={P.name} src={P.avatar} alt={P.name}
+              width="631" height="700" loading={lang === "es" ? "eager" : "lazy"} onerror="this.style.display='none'" />
           </div>
-          <div class="gh-langs">
-            <div class="gh-sub">lenguajes más usados</div>
-            {stats.topLanguages.map((l) => (
-              <div class="gh-lang">
-                <span class="gh-lang-name">{l.name}</span>
-                <span class="gh-bar" aria-hidden="true"><span style={`width:${Math.round((l.count / maxL) * 100)}%`}></span></span>
-                <span class="gh-lang-n">{l.count}</span>
+        </header>
+
+        <div class="gui-highlights" data-reveal-group>
+          {stats && (
+            <div class="gui-highlight" data-reveal>
+              <span class="gui-hl-num" data-count={stats.publicRepos}>{stats.publicRepos}</span>
+              <span class="gui-hl-lbl">{L.stats.repos}</span>
+            </div>
+          )}
+          {yearsCoding !== null && (
+            <div class="gui-highlight" data-reveal>
+              <span class="gui-hl-num" data-count={yearsCoding} data-prefix="+">+{yearsCoding}</span>
+              <span class="gui-hl-lbl">{L.stats.years}</span>
+            </div>
+          )}
+          <div class="gui-highlight" data-reveal>
+            <span class="gui-hl-num" data-count={P.experience.length}>{P.experience.length}</span>
+            <span class="gui-hl-lbl">{L.roles}</span>
+          </div>
+          <div class="gui-highlight" data-reveal>
+            <span class="gui-hl-num" data-count={P.certs.length}>{P.certs.length}</span>
+            <span class="gui-hl-lbl">{L.stats.certs}</span>
+          </div>
+        </div>
+
+        <section class="gui-section" id={id("about")}>
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">01</span>{L.about}</h2>
+          <div class="gui-about">
+            <div class="gui-prose" data-reveal>
+              {paragraphs(P.about).map((p) => <p>{p}</p>)}
+            </div>
+            <aside class="gui-panel gui-now-panel" data-reveal>
+              <h3>{L.now}</h3>
+              <ul class="gui-now">{P.now.map((n) => <li>{n}</li>)}</ul>
+              <figure class="gui-figure">
+                <img class="lb" data-gallery={`talk-${lang}`} data-caption={L.talkCaption}
+                  src="/assets/photos/glud-talk.jpg" alt={L.talkCaption} width="1000" height="755" loading="lazy" />
+                <figcaption>{L.talkCaption}</figcaption>
+              </figure>
+            </aside>
+          </div>
+        </section>
+
+        <section class="gui-section" id={id("experience")}>
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">02</span>{L.exp}</h2>
+          <ol class="gui-timeline">
+            {P.experience.map((e, i) => (
+              <li class={`gui-entry${i === 0 ? " gui-entry-current" : ""}`} data-reveal>
+                <div class="gui-entry-head">
+                  <h3 class="gui-entry-role">{e.role}</h3>
+                  <span class="gui-entry-period">{e.period}</span>
+                </div>
+                <div class="gui-entry-company">{e.company}</div>
+                <p>{e.lines.join(" ")}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section class="gui-section" id={id("projects")}>
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">03</span>{L.proj}</h2>
+          <div class="gui-cards">
+            {P.projects.map((pr) => (
+              <a class="gui-card" href={pr.url} target="_blank" rel="noopener noreferrer" data-reveal>
+                <span class="gui-card-icon" aria-hidden="true">⌂</span>
+                <h3>{pr.name}</h3>
+                <p>{pr.desc}</p>
+                <div class="gui-card-tags">{pr.tech.split(/\s*·\s*/).filter(Boolean).map((t) => <span>{t}</span>)}</div>
+                <span class="gui-card-link">{L.seeGh} <span aria-hidden="true">↗</span></span>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section class="gui-section" id={id("skills")}>
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">04</span>{L.skills}</h2>
+          <div class="gui-skills">
+            {Object.entries(P.skills).map(([cat, items]) => (
+              <div class="gui-panel gui-skillset" data-reveal>
+                <h3>{cat}</h3>
+                <div class="gui-badges">{items.map((s) => <span class="gui-badge">{s}</span>)}</div>
               </div>
             ))}
           </div>
-          <p><a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener noreferrer">github.com/{stats.login} ↗</a></p>
-        </div>
-      </section>
-    )}
 
-    <section class="gui-section">
-      <h2>Educación</h2>
-      <div class="gui-timeline">
-        {P.education.map((e) => (
-          <div class="gui-entry">
-            <div class="gui-entry-head">
-              <span class="gui-entry-role">{e.degree}</span>
-              <span class="gui-entry-period">{e.period}</span>
+          {stats && (
+            <div class="gui-panel gui-gh" data-reveal>
+              <div class="gui-gh-head">
+                <h3>GitHub</h3>
+                <a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener noreferrer">github.com/{stats.login} ↗</a>
+              </div>
+              <div class="gui-gh-grid">
+                <div><span class="gui-gh-num" data-count={stats.publicRepos}>{stats.publicRepos}</span><span class="gui-gh-lbl">{L.stats.repos}</span></div>
+                <div><span class="gui-gh-num" data-count={stats.totalStars} data-prefix="★ ">★ {stats.totalStars}</span><span class="gui-gh-lbl">{L.stats.stars}</span></div>
+                <div><span class="gui-gh-num" data-count={stats.followers}>{stats.followers}</span><span class="gui-gh-lbl">{L.stats.followers}</span></div>
+                <div><span class="gui-gh-num">{stats.createdYear}</span><span class="gui-gh-lbl">{L.stats.since}</span></div>
+              </div>
+              <div class="gui-gh-sub">{L.ghLangs}</div>
+              <div class="gui-gh-langs">
+                {stats.topLanguages.map((l) => (
+                  <div class="gh-lang">
+                    <span class="gh-lang-name">{l.name}</span>
+                    <span class="gh-bar" aria-hidden="true"><span style={`--w:${Math.round((l.count / maxL) * 100)}%`}></span></span>
+                    <span class="gh-lang-n">{l.count}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div class="gui-entry-company">{e.school}</div>
-            {e.url && (
-              <p><a href={e.url} target="_blank" rel="noopener noreferrer">apuntes y avances públicos ↗</a></p>
-            )}
+          )}
+        </section>
+
+        <section class="gui-section">
+          <div class="gui-two">
+            <div>
+              <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">05</span>{L.edu}</h2>
+              <ol class="gui-timeline gui-timeline-compact">
+                {P.education.map((e) => (
+                  <li class="gui-entry" data-reveal>
+                    <h3 class="gui-entry-role">{e.degree}</h3>
+                    <div class="gui-entry-company">{e.school}</div>
+                    <span class="gui-entry-period">{e.period}</span>
+                    {e.url && <p><a href={e.url} target="_blank" rel="noopener noreferrer">{L.notes} ↗</a></p>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">06</span>{L.certs}</h2>
+              <ul class="gui-certs">
+                {P.certs.map((c) => <li data-reveal><span class="gui-check" aria-hidden="true">✓</span>{c}</li>)}
+              </ul>
+            </div>
           </div>
-        ))}
+        </section>
+
+        <section class="gui-section">
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">07</span>{L.recs}</h2>
+          <div class="gui-quotes">
+            {P.testimonials.map((t) => (
+              <blockquote class="gui-testimonial" data-reveal>
+                <p>“{t.quote}”</p>
+                <footer>
+                  <span class="gui-initials" aria-hidden="true">{t.name.split(" ").slice(0, 2).map((w) => w[0]).join("")}</span>
+                  <span><strong>{t.name}</strong><small>{t.role}</small></span>
+                </footer>
+              </blockquote>
+            ))}
+          </div>
+        </section>
+
+        <section class="gui-section">
+          <h2 class="gui-h2" data-reveal><span class="gui-h2-idx">08</span>{L.gallery}</h2>
+          <div class="gui-gallery">
+            {P.gallery.map((g) => (
+              <figure data-reveal>
+                <div class="gui-gallery-img">
+                  <img class="lb" data-gallery={`work-${lang}`} data-caption={g.caption} src={g.src} alt={g.caption} loading="lazy" />
+                </div>
+                <figcaption>{g.caption}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        <section class="gui-section gui-contact" id={id("contact")}>
+          <div class="gui-contact-card" data-reveal>
+            <h2 class="gui-h2"><span class="gui-h2-idx">09</span>{L.contact}</h2>
+            <p class="gui-contact-lead">{L.contactLead}</p>
+            <a class="gui-btn gui-btn-primary gui-btn-lg" href={`mailto:${P.contact.email}`}>✉️ {P.contact.email}</a>
+            <div class="gui-socials">
+              {P.socials.map((s) => (
+                <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.name}><span aria-hidden="true">{s.icon}</span> {s.name}</a>
+              ))}
+            </div>
+            <p class="gui-contact-alt">
+              <a href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}</a>
+              <span class="gui-sep">·</span>
+              <a href={`/cv/JuanFelipeRodriguez_CV_${L.cvOtherLang}.pdf`} target="_blank" rel="noopener noreferrer">{L.cvOther}</a>
+            </p>
+          </div>
+        </section>
+
+        <footer class="gui-footer">
+          <span>© {new Date().getFullYear()} {P.name}</span>
+          <button class="gui-btn" data-gui-back type="button">{L.backTerminal}</button>
+          <a href="/rss.xml" class="gui-dim">RSS</a>
+        </footer>
+
+        <a class="gui-top" href={`#${id("top")}`} title={L.top} aria-label={L.top}>↑</a>
       </div>
-    </section>
-
-    <section class="gui-section">
-      <h2>Certificaciones</h2>
-      <ul class="gui-certs">
-        {P.certs.map((c) => <li>✓ {c}</li>)}
-      </ul>
-    </section>
-
-    <section class="gui-section">
-      <h2>Lo que dicen de mí</h2>
-      <div class="gui-quotes">
-        {P.testimonials.map((t) => (
-          <blockquote class="gui-testimonial">
-            <p>“{t.quote}”</p>
-            <footer><strong>{t.name}</strong><span>{t.role}</span></footer>
-          </blockquote>
-        ))}
-      </div>
-    </section>
-
-    <section class="gui-section gui-contact">
-      <h2>Hablemos</h2>
-      <p>
-        <a href={`mailto:${P.contact.email}`}>✉️ {P.contact.email}</a>
-      </p>
-      <div class="gui-socials">
-        {P.socials.map((s) => (
-          <a href={s.url} target="_blank" rel="noopener noreferrer"><span>{s.icon}</span> {s.handle}</a>
-        ))}
-      </div>
-    </section>
-
-    <footer class="gui-footer">
-      <span>“{P.tagline}”</span>
-      <button class="gui-btn gui-back" data-gui-back type="button">⌨ Volver a la terminal</button>
-      <span class="dim">juferoga.pro</span>
-    </footer>
-  </div>
+    );
+  })}
 </main>
+
+<script>
+  // Interacciones de la versión visual. Todo es progresivo: sin JS el contenido
+  // se ve completo (las animaciones de aparición solo se activan con .reveal-ready).
+  const gui = document.getElementById("gui") as HTMLElement;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── Aparición escalonada al entrar en pantalla ──
+  // El retraso (--i) se reinicia por grupo de hermanos, así una rejilla entra en cascada.
+  gui.querySelectorAll<HTMLElement>("[data-reveal]").forEach((el) => {
+    const sibs = Array.from(el.parentElement?.children ?? []).filter((c) => c.hasAttribute("data-reveal"));
+    el.style.setProperty("--i", String(Math.min(sibs.indexOf(el), 6)));
+  });
+
+  function countUp(el: HTMLElement) {
+    const target = Number(el.dataset.count);
+    const prefix = el.dataset.prefix ?? "";
+    if (!Number.isFinite(target) || reduceMotion) return;
+    const t0 = performance.now();
+    const dur = 1200;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = prefix + Math.round(target * eased);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  if ("IntersectionObserver" in window) {
+    gui.classList.add("reveal-ready");
+    const io = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const el = en.target as HTMLElement;
+        el.classList.add("in");
+        el.querySelectorAll<HTMLElement>("[data-count]").forEach(countUp);
+        io.unobserve(el);
+      }
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    gui.querySelectorAll("[data-reveal], .gui-gh").forEach((el) => io.observe(el));
+
+    // ── Scroll-spy: resalta en la barra la sección visible ──
+    const spy = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const id = (en.target as HTMLElement).id;
+        const nav = en.target.closest(".gui-inner")?.querySelector(".gui-nav-links");
+        nav?.querySelectorAll("a").forEach((a) => a.classList.toggle("active", a.dataset.spy === id));
+      }
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    gui.querySelectorAll("[data-spy]").forEach((a) => {
+      const sec = document.getElementById((a as HTMLElement).dataset.spy!);
+      if (sec) spy.observe(sec);
+    });
+  }
+
+  // ── Barra de progreso + estado de scroll (borde de la navbar, botón "arriba") ──
+  const bar = gui.querySelector(".gui-progress span") as HTMLElement;
+  let ticking = false;
+  function onScroll() {
+    ticking = false;
+    if (gui.hidden) return;
+    const y = window.scrollY;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.setProperty("--p", String(max > 0 ? Math.min(1, y / max) : 0));
+    gui.classList.toggle("scrolled", y > 8);
+    gui.classList.toggle("scrolled-far", y > window.innerHeight * 0.9);
+    if (y < 40) gui.querySelectorAll(".gui-nav-links a.active").forEach((a) => a.classList.remove("active"));
+  }
+  window.addEventListener("scroll", () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+  }, { passive: true });
+
+  // ── Spotlight de las tarjetas: el brillo sigue al puntero ──
+  gui.addEventListener("pointermove", (e) => {
+    const card = (e.target as HTMLElement).closest(".gui-card") as HTMLElement | null;
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    card.style.setProperty("--my", `${e.clientY - r.top}px`);
+  });
+</script>

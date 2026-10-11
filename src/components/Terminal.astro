@@ -59,8 +59,6 @@
   <nav class="quickbar" id="quickbar" aria-label="Accesos rápidos"></nav>
 </main>
 
-<!-- Pista visual; los lectores de pantalla ya reciben la instrucción vía .sr-only dentro de la terminal -->
-<div class="hint" id="hint" aria-hidden="true">escribe <b>help</b> y presiona <b>Enter</b> ↵</div>
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Visor de imágenes" aria-hidden="true">
   <div class="lb-backdrop" data-lb-close></div>
@@ -90,7 +88,6 @@
   const fiAfter = $("#fi-after") as HTMLSpanElement;
   const cursorEl = $("#cursor") as HTMLSpanElement;
   const ghostEl = $("#ghost") as HTMLSpanElement;
-  const hint = $("#hint") as HTMLDivElement;
   const themeBtn = $("#theme-btn") as HTMLButtonElement;
   const canvas = $("#matrix-canvas") as HTMLCanvasElement;
 
@@ -193,15 +190,15 @@
       helpTitle: "Comandos — haz clic o escríbelos:",
       cats: { about: "Sobre mí", work: "Trabajo", connect: "Conecta", terminal: "Terminal" },
       tipHistory: "💡 ↑/↓ historial · Tab autocompleta",
-      eggs: "🥚 y varios comandos ocultos… prueba: matrix · neofetch · glud · pong",
+      eggs: "🥚 hay algunos secretos escondidos… 👀",
       notFound: (n: string) => `comando no encontrado: ${n}`,
       didYouMean: (c: string) => `¿quisiste decir '${c}'?`,
       seeHelp: "escribe 'help' para ver la lista de comandos.",
-      welcome: "Bienvenido a mi terminal. Escribe 'help' para empezar. 🚀",
-      welcomeQ: "¿Primera vez por aquí?",
+      welcome: "Bienvenido 👋 ¿Por dónde quieres empezar?",
+      btnHelp: "⌘ Ver comandos",
       btnTour: "▶ Recorrido guiado",
       btnGui: "🖥 Versión visual",
-      welcomeOr: "— o si eres técnico, escribe",
+      welcomeOr: "…o escribe un comando y presiona Enter ↵",
       hAbout: "// sobre-mi", hGoals: "// objetivos",
       hNow: "// now — en qué estoy enfocado ahora mismo", hStack: "// stack",
       hExp: "// experiencia", hEdu: "// educacion", hProj: "// proyectos",
@@ -239,26 +236,24 @@
         banner: "Mostrar el banner ASCII", clear: "Limpiar la pantalla", help: "Esta ayuda",
       },
       chips: [
-        { label: "👤 Sobre mí", cmd: "about" }, { label: "🧰 Skills", cmd: "skills" },
-        { label: "💼 Experiencia", cmd: "experience" }, { label: "🚀 Proyectos", cmd: "projects" },
+        { label: "👤 Sobre mí", cmd: "about" }, { label: "💼 Experiencia", cmd: "experience" },
+        { label: "🚀 Proyectos", cmd: "projects" }, { label: "🧰 Skills", cmd: "skills" },
         { label: "📄 CV", cmd: "resume" }, { label: "✉️ Contacto", cmd: "contact" },
-        { label: "🌐 Redes", cmd: "social" }, { label: "▶ Recorrido", cmd: "__tour" },
-        { label: "🎮 Juego", cmd: "pong" },
       ],
     },
     en: {
       helpTitle: "Commands — click or type them:",
       cats: { about: "About me", work: "Work", connect: "Connect", terminal: "Terminal" },
       tipHistory: "💡 ↑/↓ history · Tab autocompletes",
-      eggs: "🥚 plus several hidden commands… try: matrix · neofetch · glud · pong",
+      eggs: "🥚 there are a few hidden secrets… 👀",
       notFound: (n: string) => `command not found: ${n}`,
       didYouMean: (c: string) => `did you mean '${c}'?`,
       seeHelp: "type 'help' to see the list of commands.",
-      welcome: "Welcome to my terminal. Type 'help' to start. 🚀",
-      welcomeQ: "First time here?",
+      welcome: "Welcome 👋 Where would you like to start?",
+      btnHelp: "⌘ See commands",
       btnTour: "▶ Guided tour",
       btnGui: "🖥 Visual version",
-      welcomeOr: "— or if you're technical, type",
+      welcomeOr: "…or type a command and press Enter ↵",
       hAbout: "// about-me", hGoals: "// goals",
       hNow: "// now — what I'm focused on right now", hStack: "// stack",
       hExp: "// experience", hEdu: "// education", hProj: "// projects",
@@ -296,11 +291,9 @@
         banner: "Show the ASCII banner", clear: "Clear the screen", help: "This help",
       },
       chips: [
-        { label: "👤 About", cmd: "about" }, { label: "🧰 Skills", cmd: "skills" },
-        { label: "💼 Experience", cmd: "experience" }, { label: "🚀 Projects", cmd: "projects" },
+        { label: "👤 About", cmd: "about" }, { label: "💼 Experience", cmd: "experience" },
+        { label: "🚀 Projects", cmd: "projects" }, { label: "🧰 Skills", cmd: "skills" },
         { label: "📄 CV", cmd: "resume" }, { label: "✉️ Contact", cmd: "contact" },
-        { label: "🌐 Social", cmd: "social" }, { label: "▶ Tour", cmd: "__tour" },
-        { label: "🎮 Game", cmd: "pong" },
       ],
     },
   };
@@ -406,10 +399,10 @@
         print(t().helpTitle, "bright");
         const cats = t().cats as Record<string, string>;
         const groups: [string, string[]][] = [
-          [cats.about, ["whoami", "about", "now", "goals"]],
+          [cats.about, ["whoami", "about", "now"]],
           [cats.work, ["skills", "experience", "education", "projects", "certs", "recommendations", "stats"]],
           [cats.connect, ["contact", "social", "resume", "blog", "timeline"]],
-          [cats.terminal, ["theme", "sound", "lang", "visits", "pong", "clear"]],
+          [cats.terminal, ["theme", "lang", "sound", "clear"]],
         ];
         let html = '<div class="help-cats">';
         for (const [label, cmds] of groups) {
@@ -663,7 +656,7 @@
           print(`→ ${link(p.url, esc(p.title))} <span class="dim">${esc(p.date)}</span>`);
         }
         print("");
-        print("📚 " + link("/blog", lang === "en" ? "all posts" : "todos los artículos") + " · " + link("/rss.xml", "RSS"), "accent");
+        print("📚 " + link("/blog/", lang === "en" ? "all posts" : "todos los artículos") + " · " + link("/rss.xml", "RSS"), "accent");
       },
     },
 
@@ -677,10 +670,10 @@
             : "abriendo la línea de tiempo interactiva… 🕰️",
           "accent"
         );
-        print("→ " + link("/timeline", lang === "en" ? "if it doesn't open, click here" : "si no abre, haz clic aquí"), "dim");
+        print("→ " + link("/timeline/", lang === "en" ? "if it doesn't open, click here" : "si no abre, haz clic aquí"), "dim");
         track("cmd-timeline-nav");
         await sleep(650);
-        window.location.href = "/timeline";
+        window.location.href = "/timeline/";
       },
     },
 
@@ -718,10 +711,12 @@
         if (arg in byName) {
           idx = byName[arg];
         } else {
-          const cur = themes.indexOf(document.body.className.trim());
-          idx = (cur + 1) % themes.length;
+          const cur = themes.findIndex((th) => th && document.body.classList.contains(th));
+          idx = (Math.max(0, cur) + 1) % themes.length;
         }
-        document.body.className = themes[idx];
+        // solo se tocan las clases de tema: body también lleva gui-active
+        document.body.classList.remove(...themes.filter(Boolean));
+        if (themes[idx]) document.body.classList.add(themes[idx]);
         try { localStorage.setItem("theme", themes[idx]); } catch {}
         print(`tema → ${names[idx]}`, "accent");
       },
@@ -729,6 +724,7 @@
 
     pong: {
       desc: "Mini-juego: PONG 🎮 (con muro travieso)",
+      hidden: true,
       run: () => {
         print("🎮 PONG.SH — primero en llegar a 5. ¡Esquiva el muro amarillo!", "accent");
         print("controles: W/S o ↑/↓ o el ratón · ESC/Q para salir", "dim");
@@ -1217,7 +1213,7 @@
     } else {
       track("cmd-not-found");
       print(t().notFound(esc(name)), "error");
-      const candidates = [...PUBLIC_CMDS, ...Object.keys(ALIASES)];
+      const candidates = [...PUBLIC_CMDS, ...PUBLIC_ALIASES];
       let best = "", bestD = Infinity;
       for (const c of candidates) {
         const d = levenshtein(key, c);
@@ -1241,6 +1237,9 @@
   let histIdx = -1;
 
   const PUBLIC_CMDS = Object.keys(COMMANDS).filter((k) => !COMMANDS[k].hidden);
+  // aliases de comandos ocultos (game → pong, logros → achievements…) tampoco se sugieren:
+  // los easter eggs se descubren, no se autocompletan
+  const PUBLIC_ALIASES = Object.keys(ALIASES).filter((a) => !COMMANDS[ALIASES[a]]?.hidden);
 
   function syncFake() {
     const v = cmdInput.value;
@@ -1261,7 +1260,7 @@
   function ghostSuggestion(v: string): string {
     if (!v) return "";
     const lower = v.toLowerCase();
-    const pool = [...PUBLIC_CMDS, ...Object.keys(ALIASES)];
+    const pool = [...PUBLIC_CMDS, ...PUBLIC_ALIASES];
     const match = pool.find((c) => c.startsWith(lower) && c !== lower);
     return match ? match.slice(v.length) : "";
   }
@@ -1290,7 +1289,6 @@
         histIdx = cmdHistory.length;
       }
       setValue("");
-      hideHint();
       await execute(val);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -1335,7 +1333,7 @@
   themeBtn.addEventListener("click", () => COMMANDS.theme.run([]));
   try {
     const saved = localStorage.getItem("theme");
-    if (saved) document.body.className = saved;
+    if (saved === "theme-amber" || saved === "theme-cyber") document.body.classList.add(saved);
   } catch {}
 
   
@@ -1431,7 +1429,6 @@
 
   const quickbar = $("#quickbar") as HTMLElement;
   function runQuick(cmd: string) {
-    hideHint();
     if (cmd === "__tour") { startTour(); return; }
     execute(cmd);
     focusInput();
@@ -1466,7 +1463,6 @@
     if (tourActive) return;
     tourActive = true;
     track("tour");
-    hideHint();
     if (document.body.classList.contains("gui-active")) setGui(false);
     window.addEventListener("keydown", tourEscape);
     output.innerHTML = "";
@@ -1501,6 +1497,12 @@
     guiEl.toggleAttribute("hidden", !on);
     guiBtn.textContent = on ? "⌨ terminal" : "🖥 visual";
     guiBtn.title = on ? "Volver a la terminal" : "Cambiar a versión visual";
+    // ?view=visual en la URL: el enlace se puede compartir y sobrevive a recargas
+    try {
+      const url = new URL(location.href);
+      if (on) url.searchParams.set("view", "visual"); else url.searchParams.delete("view");
+      history.replaceState(history.state, "", url);
+    } catch {}
     if (on) { track("gui-visual"); window.scrollTo(0, 0); }
     else { focusInput(); }
   }
@@ -1510,110 +1512,23 @@
   });
   const guiEl = $("#gui") as HTMLElement;
   guiEl.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest("[data-gui-back]")) { beep(720, 24); setGui(false); }
+    const tgt = e.target as HTMLElement;
+    if (tgt.closest("[data-gui-back]")) { beep(720, 24); setGui(false); }
+    else if (tgt.closest("[data-gui-lang]")) { beep(700, 24); setLang(lang === "es" ? "en" : "es"); }
+    else if (tgt.closest("[data-gui-theme]")) { beep(700, 24); COMMANDS.theme.run([]); }
   });
 
   
   
   const langBtn = $("#lang-btn") as HTMLButtonElement;
-  const guiInner = guiEl.querySelector(".gui-inner") as HTMLElement;
-  const guiOriginalES = guiInner.innerHTML; // versión ES renderizada por Astro (SEO)
   langBtn.textContent = "🌐 " + lang.toUpperCase();
 
-  function buildGuiHTML(pr: typeof PROFILE): string {
-    const paras: string[] = []; let cur: string[] = [];
-    for (const l of pr.about) { if (l === "") { if (cur.length) { paras.push(cur.join(" ")); cur = []; } } else cur.push(l); }
-    if (cur.length) paras.push(cur.join(" "));
-    const e = (s: string) => esc(s);
-    const isEN = lang === "en";
-    const H = {
-      now: isEN ? "Right now" : "Ahora mismo",
-      about: isEN ? "About me" : "Sobre mí",
-      skills: isEN ? "Skills" : "Habilidades",
-      exp: isEN ? "Experience" : "Experiencia",
-      proj: isEN ? "Projects" : "Proyectos",
-      edu: isEN ? "Education" : "Educación",
-      gallery: isEN ? "Work in pictures" : "Trabajo en imágenes",
-      ghLangs: isEN ? "most used languages" : "lenguajes más usados",
-      ghRepos: isEN ? "public repositories" : "repositorios públicos",
-      ghStars: isEN ? "total stars" : "estrellas totales",
-      ghFollowers: isEN ? "followers" : "seguidores",
-      ghSince: isEN ? "coding since" : "programando desde",
-      certs: isEN ? "Certifications" : "Certificaciones",
-      recs: isEN ? "What people say about me" : "Lo que dicen de mí",
-      talk: isEN ? "Download CV" : "Descargar CV",
-      back: isEN ? "⌨ Terminal version" : "⌨ Versión terminal",
-      hablemos: isEN ? "Let's talk" : "Hablemos",
-      caption: isEN ? "SLUD XXII — talk \"The future of Linux\", as former GLUD Director 🐧"
-                    : "SLUD XXII — charla \"El futuro de Linux\", como ex-Director del GLUD 🐧",
-      seeGh: isEN ? "view on GitHub ↗" : "ver en GitHub ↗",
-    };
-    const social = (s: typeof pr.socials[number]) =>
-      `<a href="${s.url}" target="_blank" rel="noopener noreferrer" title="${e(s.name)}"><span>${s.icon}</span> ${e(s.name)}</a>`;
-    return `
-      <header class="gui-hero">
-        <img class="gui-avatar lb" data-gallery="gui" data-caption="${e(pr.name)}" src="${pr.avatar}" alt="${e(pr.name)}" loading="lazy" onerror="this.style.display='none'" />
-        <div class="gui-hero-text">
-          <h1 class="gui-name">${e(pr.name)}</h1>
-          <p class="gui-role">${e(pr.role)}</p>
-          <p class="gui-title">${e(pr.title)}</p>
-          <p class="gui-loc">📍 ${e(pr.location)}</p>
-          <blockquote class="gui-quote">“${e(pr.tagline)}”</blockquote>
-          <div class="gui-actions">
-            <a class="gui-btn-primary" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "en" : "es"}.pdf" target="_blank" rel="noopener noreferrer">📄 ${H.talk}</a>
-            <a class="gui-btn" href="/cv/JuanFelipeRodriguez_CV_${isEN ? "es" : "en"}.pdf" target="_blank" rel="noopener noreferrer">📄 CV (${isEN ? "ES" : "EN"})</a>
-            <a class="gui-btn" href="/blog">📝 Blog</a>
-            <button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button>
-          </div>
-          <div class="gui-socials">${pr.socials.map(social).join("")}</div>
-        </div>
-      </header>
-      <section class="gui-section"><h2>${H.about}</h2>${paras.map((p) => `<p>${e(p)}</p>`).join("")}
-        <figure class="gui-figure"><img class="lb" data-gallery="gui" data-caption="${e(H.caption)}" src="/assets/photos/glud-talk.jpg" alt="SLUD XXII" loading="lazy" />
-        <figcaption>${e(H.caption)}</figcaption></figure></section>
-      <section class="gui-section"><h2>${H.now}</h2><ul class="gui-now">${pr.now.map((n) => `<li>${e(n)}</li>`).join("")}</ul></section>
-      <section class="gui-section"><h2>${H.skills}</h2><div class="gui-skills">${
-        Object.entries(pr.skills).map(([c, items]) => `<div class="gui-skillset"><h3>${e(c)}</h3><div>${items.map((s) => `<span class="gui-badge">${e(s)}</span>`).join("")}</div></div>`).join("")
-      }</div></section>
-      <section class="gui-section"><h2>${H.exp}</h2><div class="gui-timeline">${
-        pr.experience.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.role)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.company)}</div><p>${e(x.lines.join(" "))}</p></div>`).join("")
-      }</div></section>
-      <section class="gui-section"><h2>${H.proj}</h2><div class="gui-cards">${
-        pr.projects.map((p) => `<a class="gui-card" href="${p.url}" target="_blank" rel="noopener noreferrer"><h3>${e(p.name)}</h3><span class="gui-card-tech">${e(p.tech)}</span><p>${e(p.desc)}</p><span class="gui-card-link">${H.seeGh}</span></a>`).join("")
-      }</div></section>
-      <section class="gui-section"><h2>${H.gallery}</h2><div class="gui-gallery">${
-        pr.gallery.map((g) => `<figure><img class="lb" data-gallery="work" data-caption="${e(g.caption)}" src="${g.src}" alt="${e(g.caption)}" loading="lazy" /><figcaption>${e(g.caption)}</figcaption></figure>`).join("")
-      }</div></section>
-      ${(() => {
-        const g = buildStats();
-        if (!g) return "";
-        const mx = Math.max(1, ...g.topLanguages.map((l) => l.count));
-        const langs = g.topLanguages.map((l) => `<div class="gh-lang"><span class="gh-lang-name">${e(l.name)}</span><span class="gh-bar" aria-hidden="true"><span style="width:${Math.round((l.count / mx) * 100)}%"></span></span><span class="gh-lang-n">${l.count}</span></div>`).join("");
-        return `<section class="gui-section"><h2>GitHub</h2><div class="gh-stats">
-          <div class="gh-grid">
-            <div class="gh-stat"><span class="gh-num">${g.publicRepos}</span><span class="gh-lbl">${H.ghRepos}</span></div>
-            <div class="gh-stat"><span class="gh-num">★ ${g.totalStars}</span><span class="gh-lbl">${H.ghStars}</span></div>
-            <div class="gh-stat"><span class="gh-num">${g.followers}</span><span class="gh-lbl">${H.ghFollowers}</span></div>
-            <div class="gh-stat"><span class="gh-num">${g.createdYear}</span><span class="gh-lbl">${H.ghSince}</span></div>
-          </div>
-          <div class="gh-langs"><div class="gh-sub">${H.ghLangs}</div>${langs}</div>
-          <p><a href="https://github.com/${e(g.login)}" target="_blank" rel="noopener noreferrer">github.com/${e(g.login)} ↗</a></p>
-        </div></section>`;
-      })()}
-      <section class="gui-section"><h2>${H.edu}</h2><div class="gui-timeline">${
-        pr.education.map((x) => `<div class="gui-entry"><div class="gui-entry-head"><span class="gui-entry-role">${e(x.degree)}</span><span class="gui-entry-period">${e(x.period)}</span></div><div class="gui-entry-company">${e(x.school)}</div>${x.url ? `<p><a href="${e(x.url)}" target="_blank" rel="noopener noreferrer">${isEN ? "public notes & progress ↗" : "apuntes y avances públicos ↗"}</a></p>` : ""}</div>`).join("")
-      }</div></section>
-      <section class="gui-section"><h2>${H.certs}</h2><ul class="gui-certs">${pr.certs.map((c) => `<li>✓ ${e(c)}</li>`).join("")}</ul></section>
-      <section class="gui-section"><h2>${H.recs}</h2><div class="gui-quotes">${
-        pr.testimonials.map((tt) => `<blockquote class="gui-testimonial"><p>“${e(tt.quote)}”</p><footer><strong>${e(tt.name)}</strong><span>${e(tt.role)}</span></footer></blockquote>`).join("")
-      }</div></section>
-      <section class="gui-section gui-contact"><h2>${H.hablemos}</h2><p><a href="mailto:${e(pr.contact.email)}">✉️ ${e(pr.contact.email)}</a></p>
-        <div class="gui-socials">${pr.socials.map((s) => `<a href="${s.url}" target="_blank" rel="noopener noreferrer"><span>${s.icon}</span> ${e(s.handle)}</a>`).join("")}</div></section>
-      <footer class="gui-footer"><span>“${e(pr.tagline)}”</span><button class="gui-btn gui-back" data-gui-back type="button">${H.back}</button><span class="dim">juferoga.pro</span></footer>`;
-  }
-
+  // La versión visual trae ES y EN renderizadas por Astro (GuiMode.astro);
+  // aquí solo se alterna cuál bloque está visible.
   function renderGui() {
-    guiInner.innerHTML = lang === "es" ? guiOriginalES : buildGuiHTML(P);
+    guiEl.querySelectorAll<HTMLElement>(".gui-inner[data-lang]").forEach((el) => {
+      el.toggleAttribute("hidden", el.dataset.lang !== lang);
+    });
   }
 
   function setLang(l: Lang) {
@@ -1636,11 +1551,11 @@
   function printWelcomeChooser() {
     printHTML(
       `<div class="welcome-chooser">
-         <span class="wc-q">${t().welcomeQ}</span>
-         <button class="inline-btn" data-action="tour">${t().btnTour}</button>
+         <button class="inline-btn inline-btn-primary" data-action="tour">${t().btnTour}</button>
          <button class="inline-btn" data-action="gui">${t().btnGui}</button>
-         <span class="dim">${t().welcomeOr} <b>help</b> 😎</span>
-       </div>`
+         <button class="inline-btn" data-action="help">${t().btnHelp}</button>
+       </div>
+       <div class="line dim">${t().welcomeOr}</div>`
     );
   }
   output.addEventListener("click", (e) => {
@@ -1655,17 +1570,12 @@
     beep(700, 16);
     if (el.dataset.action === "tour") startTour();
     else if (el.dataset.action === "gui") setGui(true);
+    else if (el.dataset.action === "help") runQuick("help");
   });
 
   
   
-  let hintHidden = false;
-  function hideHint() {
-    if (!hintHidden) {
-      hint.classList.add("hidden");
-      hintHidden = true;
-    }
-  }
+
 
   
   
@@ -2086,20 +1996,23 @@
     window.addEventListener("click", skipper);
 
     const bootLines = [
-      "Booting juferoga.pro kernel 6.0.3-arch ...",
-      "[  OK  ] Reached target Open Source.",
-      "[  OK  ] Started GNU/Linux Passion Service.",
-      "[  OK  ] Mounted /home/juferoga/portfolio.",
+      "Booting juferoga.pro ...",
       "[  OK  ] Loaded Cloud & AI modules.",
       "[  OK  ] Initialized coffee daemon ☕",
-      "Login: juferoga (auto)",
-      "",
     ];
+    const bootEl = document.createElement("div");
+    bootEl.className = "boot-log";
+    output.appendChild(bootEl);
     for (const l of bootLines) {
-      print(esc(l), l.includes("OK") ? "dim" : "accent");
-      await bootSleep(140);
+      const d = document.createElement("div");
+      d.className = "line " + (l.includes("OK") ? "dim" : "accent");
+      d.textContent = l;
+      bootEl.appendChild(d);
+      await bootSleep(110);
     }
-    await bootSleep(200);
+    await bootSleep(150);
+    // el log de arranque se desvanece: deja la pantalla limpia para el contenido
+    bootEl.classList.add("boot-done");
 
     printHTML(
       `<div class="hero">
@@ -2111,9 +2024,7 @@
     await bootSleep(150);
     await typeLine(`${P.name} — ${P.title}`, "bright", 10);
     printHTML(`<div class="quote">"${P.tagline}"</div>`);
-    print("");
     await typeLine(t().welcome, "accent", 8);
-    print("");
     printWelcomeChooser();
     print("");
 

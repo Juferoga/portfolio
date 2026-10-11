@@ -7,6 +7,15 @@ import { PROFILE } from "../data/profile";
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!-- idioma elegido en el sitio (clave compartida "lang"), antes del primer paint: sin parpadeo -->
+    <script is:inline>
+      try {
+        if (localStorage.getItem("lang") === "en") {
+          document.documentElement.lang = "en";
+          document.title = "404 — page not found · juferoga.pro";
+        }
+      } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>404 — página no encontrada · juferoga.pro</title>
     <meta name="description" content="Página no encontrada — portafolio de Juan Felipe Rodríguez Galindo." />
@@ -16,6 +25,10 @@ import { PROFILE } from "../data/profile";
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
+      /* bilingüe: se muestra solo la variante del idioma activo (global, no scopeado) */
+      :global(html[lang="en"] [data-l="es"]),
+      :global(html:not([lang="en"]) [data-l="en"]) { display: none !important; }
+
       .e404-wrap {
         min-height: 100dvh;
         display: flex;
@@ -42,6 +55,7 @@ import { PROFILE } from "../data/profile";
         font-size: 12.5px;
       }
       .e404-dot { width: 12px; height: 12px; border-radius: 50%; }
+      @media (prefers-reduced-motion: reduce) { .e404, .e404-code { animation: none; } }
       .e404-body { padding: 22px 24px 26px; text-shadow: 0 0 4px var(--glow); }
       .e404-body .line { margin: 4px 0; }
       .e404-code {
@@ -51,9 +65,17 @@ import { PROFILE } from "../data/profile";
         text-shadow: 0 0 18px var(--glow);
         margin: 10px 0 2px;
       }
+      /* destello tipo glitch al aparecer */
+      .e404-code { animation: glitch 0.9s steps(2, end) 0.2s both; }
+      @keyframes glitch {
+        0% { opacity: 0; transform: translateX(-4px); text-shadow: 3px 0 var(--error), -3px 0 var(--link); }
+        40% { opacity: 1; transform: translateX(3px); text-shadow: -3px 0 var(--error), 3px 0 var(--link); }
+        100% { transform: none; text-shadow: 0 0 18px var(--glow); }
+      }
+      .e404 { animation: termIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      .e404-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
       .e404-home {
         display: inline-block;
-        margin-top: 18px;
         padding: 9px 16px;
         border: 1px solid var(--accent);
         border-radius: 8px;
@@ -61,6 +83,7 @@ import { PROFILE } from "../data/profile";
         text-decoration: none;
         transition: all 0.15s;
       }
+      .e404-home.is-primary { background: var(--accent); color: var(--bg); font-weight: 700; }
       .e404-home:hover, .e404-home:focus-visible {
         background: var(--accent);
         color: var(--bg);
@@ -69,6 +92,9 @@ import { PROFILE } from "../data/profile";
     </style>
   </head>
   <body>
+    <script is:inline>
+      try { var th = localStorage.getItem("theme"); if (th === "theme-amber" || th === "theme-cyber") document.body.classList.add(th); } catch (e) {}
+    </script>
     <div class="crt-overlay" aria-hidden="true"></div>
     <div class="scanlines" aria-hidden="true"></div>
     <main class="e404-wrap">
@@ -81,10 +107,23 @@ import { PROFILE } from "../data/profile";
         </div>
         <div class="e404-body">
           <h1 class="e404-code">404</h1>
-          <p class="line"><span class="prompt-user">{PROFILE.handle}</span><span class="prompt-at">@</span><span class="prompt-host">portfolio</span><span class="prompt-sep">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span> cat esta-pagina</p>
-          <p class="line error">cat: esta-pagina: No such file or directory</p>
-          <p class="line dim">la página que buscas no existe (o nunca existió 👀)</p>
-          <a class="e404-home" href="/">↩ volver al inicio</a>
+          <p class="line"><span class="prompt-user">{PROFILE.handle}</span><span class="prompt-at">@</span><span class="prompt-host">portfolio</span><span class="prompt-sep">:</span><span class="prompt-path">~</span><span class="prompt-dollar">$</span> cat <span data-path>esta-pagina</span></p>
+          <p class="line error">cat: <span data-path>esta-pagina</span>: No such file or directory</p>
+          <p class="line dim" data-l="es">la página que buscas no existe (o nunca existió 👀). Prueba por aquí:</p>
+          <p class="line dim" data-l="en">the page you're looking for doesn't exist (or never did 👀). Try one of these:</p>
+          <nav class="e404-links" aria-label="Páginas del sitio / Site pages">
+            <a class="e404-home is-primary" href="/?view=visual">🖥 <span data-l="es">Portafolio</span><span data-l="en">Portfolio</span></a>
+            <a class="e404-home" href="/">⌨ Terminal</a>
+            <a class="e404-home" href="/blog/">📝 Blog</a>
+            <a class="e404-home" href="/timeline/">🕰️ Timeline</a>
+          </nav>
+          <script is:inline>
+            // muestra la ruta que se pidió, como haría un cat de verdad
+            try {
+              var p = decodeURIComponent(location.pathname).replace(/^\//, "") || "esta-pagina";
+              document.querySelectorAll("[data-path]").forEach(function (el) { el.textContent = p.slice(0, 60); });
+            } catch (e) {}
+          </script>
         </div>
       </div>
     </main>
