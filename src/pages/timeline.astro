@@ -295,7 +295,15 @@ const pad = (n: number) => String(n).padStart(2, "0");
     ))}
 
     <div class="tl-head" data-reveal>
-      <span class="tl-graph" aria-hidden="true"><span class="tl-dot tl-dot--head"></span></span>
+      <span class="tl-graph" aria-hidden="true">
+        <!-- las ramas GitLab y Trabajo se fusionan en la principal: el `git merge` final -->
+        <svg class="tl-merge" viewBox="0 0 56 39" preserveAspectRatio="none">
+          <path class="m-github" d="M12 0 V39" />
+          <path class="m-gitlab" d="M28 0 C28 22 12 16 12 33" />
+          <path class="m-work" d="M44 0 C44 26 12 14 12 33" />
+        </svg>
+        <span class="tl-dot tl-dot--head"></span>
+      </span>
       <div>
         <p class="tl-head-ref"><span class="tl-head-label">HEAD</span> → main</p>
         <p class="tl-head-text">
@@ -578,6 +586,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
   /* ── Capítulos ── */
   .tl-chapter { margin-bottom: 40px; scroll-margin-top: calc(var(--nav-h) + 64px); }
+  .tl-chapter:last-of-type { margin-bottom: 0; }
   .tl-chapter[hidden], .tl-year[hidden], .tl-item[hidden] { display: none; }
   .tl-chapter-head {
     display: flex; gap: 20px; align-items: flex-start; padding: 26px 26px 22px; margin-bottom: 18px;
@@ -698,7 +707,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
   .tl-copy.is-done::after { content: "✓"; color: var(--accent); font-weight: 700; }
 
   /* ── HEAD → main: el final de la historia… por ahora ── */
-  .tl-head { display: grid; grid-template-columns: var(--g) 1fr; padding: 18px 0 8px; background-size: 2px 34px; }
+  .tl-head { display: grid; grid-template-columns: var(--g) 1fr; padding: 0 0 8px; background-image: none; }
+  .tl-merge { position: absolute; top: 0; left: 0; width: var(--g); height: 39px; overflow: visible; }
+  .tl-merge path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .tl-merge .m-github { stroke: color-mix(in srgb, var(--lane-github) 35%, transparent); }
+  .tl-merge .m-gitlab { stroke: color-mix(in srgb, var(--lane-gitlab) 30%, transparent); }
+  .tl-merge .m-work { stroke: color-mix(in srgb, var(--lane-work) 30%, transparent); }
+  .tl-head > div { margin-top: 14px; }
   .tl-dot--head {
     top: 30px; left: calc(var(--x-github) - 9px); width: 18px; height: 18px;
     background: var(--accent); border-color: var(--accent); animation: headPulse 2s infinite;
@@ -733,7 +748,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
     .tl-chapter-head { flex-direction: column; gap: 12px; padding: 20px 18px 18px; }
     .tl-chapter-emoji { width: 46px; height: 46px; font-size: 24px; }
     .tl-chapter-post { margin-left: 0; }
-    .tl-root { --g: 40px; --x-github: 8px; --x-gitlab: 19px; --x-work: 30px; }
+    .tl-root { --g: 40px; --x-github: 8.6px; --x-gitlab: 20px; --x-work: 31.4px; }
     .tl-dot { width: 12px; height: 12px; left: calc(var(--x, var(--x-github)) - 6px); }
     .tl-node { padding: 10px 12px; }
     .tl-panel { padding: 4px 12px 14px; }
