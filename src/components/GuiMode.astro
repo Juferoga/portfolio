@@ -28,6 +28,7 @@ const LABELS = {
     talkCaption: "SLUD XXII — charla «El futuro de Linux», como ex-Director del GLUD 🐧",
     top: "Volver arriba",
     navLabel: "Secciones",
+    newTab: "(abre en una nueva ventana)",
   },
   en: {
     nav: { about: "About", exp: "Experience", proj: "Projects", skills: "Skills", contact: "Contact" },
@@ -48,6 +49,7 @@ const LABELS = {
     talkCaption: "SLUD XXII — talk “The future of Linux”, as former GLUD Director 🐧",
     top: "Back to top",
     navLabel: "Sections",
+    newTab: "(opens in a new window)",
   },
 } as const;
 
@@ -90,7 +92,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
             {navItems.map(([key, label]) => <a href={`#${id(key)}`} data-spy={id(key)}>{label}</a>)}
           </div>
           <div class="gui-nav-actions">
-            <button type="button" class="gui-icon-btn" data-gui-lang title={L.langTitle} aria-label={L.langTitle}>🌐 {L.langBtn}</button>
+            <button type="button" class="gui-icon-btn" data-gui-lang title={L.langTitle}><span aria-hidden="true">🌐</span> {L.langBtn}<span class="sr-only"> — {L.langTitle}</span></button>
             <button type="button" class="gui-icon-btn" data-gui-theme title={L.themeTitle} aria-label={L.themeTitle}>◐</button>
             <button type="button" class="gui-icon-btn gui-icon-accent" data-gui-back title={L.backTerminal} aria-label={L.backTerminal}><span class="gui-term-icon" aria-hidden="true">&gt;_</span> <span class="gui-hide-sm">{L.terminal}</span></button>
           </div>
@@ -104,14 +106,14 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
             <p class="gui-role" data-reveal>{P.role}</p>
             <p class="gui-loc" data-reveal>📍 {P.location} <span class="gui-sep">·</span> <em>“{P.tagline}”</em></p>
             <div class="gui-actions" data-reveal>
-              <a class="gui-btn gui-btn-primary" href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}</a>
+              <a class="gui-btn gui-btn-primary" href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}<span class="sr-only"> {L.newTab}</span></a>
               <a class="gui-btn" href={`#${id("contact")}`}>✉️ {L.contact}</a>
               <a class="gui-btn" href="/blog/">📝 Blog</a>
               <a class="gui-btn" href="/timeline/">🕰️ Timeline</a>
             </div>
             <div class="gui-socials gui-socials-compact" data-reveal>
               {P.socials.filter((s) => MAIN_SOCIALS.includes(s.name)).map((s) => (
-                <a href={s.url} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{s.icon}</span> {s.name}</a>
+                <a href={s.url} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{s.icon}</span> {s.name}<span class="sr-only"> {L.newTab}</span></a>
               ))}
             </div>
           </div>
@@ -151,7 +153,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
             <div class="gui-prose" data-reveal>
               {paragraphs(P.about).map((p) => <p>{p}</p>)}
             </div>
-            <aside class="gui-panel gui-now-panel" data-reveal>
+            <div class="gui-panel gui-now-panel" data-reveal>
               <h3>{L.now}</h3>
               <ul class="gui-now">{P.now.map((n) => <li>{n}</li>)}</ul>
               <figure class="gui-figure">
@@ -159,7 +161,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
                   src="/assets/photos/glud-talk.jpg" alt={L.talkCaption} width="1000" height="755" loading="lazy" />
                 <figcaption>{L.talkCaption}</figcaption>
               </figure>
-            </aside>
+            </div>
           </div>
         </section>
 
@@ -189,7 +191,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
                 <p>{pr.desc}</p>
                 <div class="gui-card-tags">{pr.tech.split(/\s*·\s*/).filter(Boolean).map((t) => <span>{t}</span>)}</div>
                 <span class="gui-card-link">{L.seeGh} <span aria-hidden="true">↗</span></span>
-              </a>
+              <span class="sr-only"> {L.newTab}</span></a>
             ))}
           </div>
         </section>
@@ -209,7 +211,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
             <div class="gui-panel gui-gh" data-reveal>
               <div class="gui-gh-head">
                 <h3>GitHub</h3>
-                <a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener noreferrer">github.com/{stats.login} ↗</a>
+                <a href={`https://github.com/${stats.login}`} target="_blank" rel="noopener noreferrer">github.com/{stats.login} ↗<span class="sr-only"> {L.newTab}</span></a>
               </div>
               <div class="gui-gh-grid">
                 <div><span class="gui-gh-num" data-count={stats.publicRepos}>{stats.publicRepos}</span><span class="gui-gh-lbl">{L.stats.repos}</span></div>
@@ -241,7 +243,7 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
                     <h3 class="gui-entry-role">{e.degree}</h3>
                     <div class="gui-entry-company">{e.school}</div>
                     <span class="gui-entry-period">{e.period}</span>
-                    {e.url && <p><a href={e.url} target="_blank" rel="noopener noreferrer">{L.notes} ↗</a></p>}
+                    {e.url && <p><a href={e.url} target="_blank" rel="noopener noreferrer">{L.notes} ↗<span class="sr-only"> {L.newTab}</span></a></p>}
                   </li>
                 ))}
               </ol>
@@ -291,13 +293,13 @@ const MAIN_SOCIALS = ["GitHub", "LinkedIn", "YouTube", "GitLab"];
             <a class="gui-btn gui-btn-primary gui-btn-lg" href={`mailto:${P.contact.email}`}>✉️ {P.contact.email}</a>
             <div class="gui-socials">
               {P.socials.map((s) => (
-                <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.name}><span aria-hidden="true">{s.icon}</span> {s.name}</a>
+                <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.name}><span aria-hidden="true">{s.icon}</span> {s.name}<span class="sr-only"> {L.newTab}</span></a>
               ))}
             </div>
             <p class="gui-contact-alt">
-              <a href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}</a>
+              <a href={`/cv/JuanFelipeRodriguez_CV_${lang}.pdf`} target="_blank" rel="noopener noreferrer">📄 {L.cv}<span class="sr-only"> {L.newTab}</span></a>
               <span class="gui-sep">·</span>
-              <a href={`/cv/JuanFelipeRodriguez_CV_${L.cvOtherLang}.pdf`} target="_blank" rel="noopener noreferrer">{L.cvOther}</a>
+              <a href={`/cv/JuanFelipeRodriguez_CV_${L.cvOtherLang}.pdf`} target="_blank" rel="noopener noreferrer">{L.cvOther}<span class="sr-only"> {L.newTab}</span></a>
             </p>
           </div>
         </section>

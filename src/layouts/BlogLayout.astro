@@ -114,7 +114,7 @@ const jsonLd = publishedDate
         ))}
         <a href="/rss.xml">RSS</a>
       </div>
-      <button type="button" class="site-lang" data-site-lang aria-label="Cambiar idioma / Switch language">🌐 <L es="EN" en="ES" /></button>
+      <button type="button" class="site-lang" data-site-lang><span aria-hidden="true">🌐</span> <L es="EN" en="ES" /><span class="sr-only"> — <L es="cambiar a inglés" en="switch to Spanish" /></span></button>
       <a href="/" class="site-term" title="Versión terminal" aria-label="Versión terminal" data-i18n-es="Versión terminal" data-i18n-en="Terminal version"><span class="site-term-icon" aria-hidden="true">&gt;_</span> <span class="site-term-text">Terminal</span></a>
     </nav>
 
@@ -126,13 +126,12 @@ const jsonLd = publishedDate
       <span>© {new Date().getFullYear()} {PROFILE.name} · <em>“{PROFILE.tagline}”</em></span>
       <span class="site-footer-links">
         <a href="/?view=visual"><L es="Portafolio" en="Portfolio" /></a>
-        <a href={PROFILE.contact.github} target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href={PROFILE.contact.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href={PROFILE.contact.github} target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only"> <L es="(abre en una nueva ventana)" en="(opens in a new window)" /></span></a>
+        <a href={PROFILE.contact.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn<span class="sr-only"> <L es="(abre en una nueva ventana)" en="(opens in a new window)" /></span></a>
         <a href="/rss.xml">RSS</a>
       </span>
+      <a class="site-top" href="#top" title="Volver arriba" aria-label="Volver arriba" data-i18n-es="Volver arriba" data-i18n-en="Back to top">↑</a>
     </footer>
-
-    <a class="site-top" href="#top" title="Volver arriba" aria-label="Volver arriba" data-i18n-es="Volver arriba" data-i18n-en="Back to top">↑</a>
 
     <script>
       import { getLang, setLang } from "../i18n/lang";

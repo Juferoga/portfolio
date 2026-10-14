@@ -277,7 +277,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
                             <a class="tl-open" href={(j?.url ?? m?.url)!} target="_blank" rel="noopener noreferrer">
                               {j ? <L es="abrir repo relacionado ↗" en="open related repo ↗" />
                                  : <L es={`abrir en ${m!.source === "github" ? "GitHub" : "GitLab"} ↗`} en={`open on ${m!.source === "github" ? "GitHub" : "GitLab"} ↗`} />}
-                            </a>
+                            <span class="sr-only"> <L es="(abre en una nueva ventana)" en="(opens in a new window)" /></span></a>
                           )}
                           <button type="button" class="tl-copy" data-tl-copy={e.id}>
                             <span data-l="es">🔗 copiar enlace</span><span data-l="en">🔗 copy link</span>

@@ -34,22 +34,20 @@
   border-bottom: 1px solid var(--fg-dim);
   user-select: none;
 }
-.dots { display: flex; gap: 8px; }
+.dots { display: flex; gap: 0; margin-left: -6px; }
+/* botón de 24×24 (tamaño mínimo de objetivo, WCAG 2.5.8); el punto visible de 12px es ::before */
 .dot {
-  width: 12px; height: 12px; border-radius: 50%; opacity: 0.9;
-  border: none; padding: 0; background: none;
-  position: relative;
-  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+  position: relative; width: 24px; height: 24px; border: none; padding: 0; background: none;
+  cursor: pointer; border-radius: 50%;
 }
-/* área táctil de 24px sin cambiar el tamaño visual */
-.dot::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
-.dot:hover { transform: scale(1.25); }
-.dot.red { background: #ff5f56; }
-.dot.red:hover { box-shadow: 0 0 10px #ff5f56; }
-.dot.yellow { background: #ffbd2e; }
-.dot.yellow:hover { box-shadow: 0 0 10px #ffbd2e; }
-.dot.green { background: #27c93f; }
-.dot.green:hover { box-shadow: 0 0 10px #27c93f; }
+.dot::before {
+  content: ""; position: absolute; inset: 6px; border-radius: 50%;
+  background: var(--dot); opacity: 0.9; transition: transform 0.15s, box-shadow 0.15s;
+}
+.dot:hover::before { transform: scale(1.25); box-shadow: 0 0 10px var(--dot); }
+.dot.red { --dot: #ff5f56; }
+.dot.yellow { --dot: #ffbd2e; }
+.dot.green { --dot: #27c93f; }
 
 .terminal.maximized {
   width: 100vw; height: 100vh; height: 100dvh; margin: 0; border-radius: 0;

@@ -19,7 +19,7 @@
     <div class="titlebar-text" id="titlebar-text">juferoga@portfolio: ~</div>
     <div class="titlebar-actions">
       <button type="button" id="gui-btn" class="tb-btn tb-btn-wide" title="Cambiar a versión visual" aria-label="Cambiar a versión visual">🖥 visual</button>
-      <button type="button" id="lang-btn" class="tb-btn" title="Idioma ES/EN" aria-label="Cambiar idioma (español/inglés)">🌐 ES</button>
+      <button type="button" id="lang-btn" class="tb-btn" title="Idioma ES/EN">🌐 ES</button>
       <button type="button" id="sound-btn" class="tb-btn" title="Sonido de tecleo (on/off)" aria-label="Sonido de tecleo" aria-pressed="true">🔊</button>
       <button type="button" id="theme-btn" class="tb-btn" title="Cambiar tema (verde/ámbar/azul)" aria-label="Cambiar tema de color (verde, ámbar, azul)">◐</button>
     </div>
@@ -299,8 +299,11 @@
   };
   const t = () => UI[lang];
 
+  // enlaces externos: nueva pestaña + aviso para lectores de pantalla
   const link = (url: string, label?: string) =>
-    `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label ?? esc(url)}</a>`;
+    `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label ?? esc(url)}<span class="sr-only"> ${
+      lang === "en" ? "(opens in a new window)" : "(abre en una nueva ventana)"
+    }</span></a>`;
 
   
   
