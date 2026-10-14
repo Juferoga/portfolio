@@ -133,7 +133,8 @@ body.site-page.collab-a11ypro {
 
 .collab-a11ypro .site-nav { background: color-mix(in srgb, #0a0a1a 78%, transparent); }
 .collab-a11ypro .site-progress span { background: linear-gradient(90deg, var(--accent), var(--fuchsia)); }
-.collab-a11ypro .site-top { background: linear-gradient(135deg, var(--accent), var(--violet)); }
+.collab-a11ypro .site-footer .site-top { background: linear-gradient(135deg, var(--accent), var(--violet)); color: #0a0a1a; }
+.collab-a11ypro .site-footer .site-top:hover { background: linear-gradient(135deg, #93c5fd, var(--fuchsia)); color: #0a0a1a; }
 .collab-a11ypro .post-nav-card:hover { border-color: color-mix(in srgb, var(--fuchsia) 55%, transparent); }
 
 @media (max-width: 760px) { .collab-spark { display: none; } }

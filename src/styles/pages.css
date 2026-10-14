@@ -107,6 +107,8 @@ body.site-page { overflow: visible; height: auto; min-height: 100%; color: var(-
 }
 .site-page.scrolled-far .site-top { opacity: 1; transform: none; pointer-events: auto; }
 .site-top:hover { background: var(--fg-bright); }
+/* vive dentro del <footer> (landmark): sin esto heredaría el gris de .site-footer a */
+.site-footer .site-top, .site-footer .site-top:hover { color: var(--bg-deep); font-weight: 800; }
 
 /* ── Prosa de artículos (Markdown) ── */
 .prose { font-family: var(--sans); font-size: 18px; line-height: 1.8; color: var(--text); }
