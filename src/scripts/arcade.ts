@@ -1,11 +1,22 @@
 // MUTANT.EXE — el easter egg de `pong`: un pong que, al ganarlo, "se corrompe" y muta.
-//   1. pong.sh      → pong clásico (con muro travieso)
-//   2. pong3d.bin   → pong en un túnel 3D con efecto curva
-//   3. naves.exe    → shoot'em up vertical con jefe final
-//   4. doom.sh      → shooter en primera persona (raycaster) cazando bugs
+// Modo historia: un nivel por año del timeline (src/data/timeline.ts), cada uno inspirado en un hito real.
+//   2019 pong.sh          → los orígenes: el pong clásico
+//   2020 snake.py         → "la serpiente antes de la cuarentena"
+//   2021 fisica3d.m       → Física 1 en MATLAB: pong en un túnel 3D
+//   2022 catastro.exe     → el año "callado" en la Agencia Catastral: delimitar predios (estilo Xonix)
+//   2023 bd-2.sql         → el gran año: breakout con exactamente 380 bloques (sus 380 commits)
+//   2024 multimedia.gd    → "un shooter 2D en Godot" + el salto al banco: naves con jefe legacy
+//   2025 clean-arch.nes   → Clean Architecture y second brain: plataformas old school
+//   2026 kernel-panic.sh  → la maestría en IA: shooter en primera persona
+// pong, pong 3D y naves viven aquí; el resto en arcade/games/*.ts (API en arcade/engine.ts).
 // Todo en canvas 2D, sin dependencias. Las vidas se recargan en cada nivel; el puntaje se acumula.
 
-type Beep = (freq?: number, dur?: number, vol?: number) => void;
+import { clamp, rand, TAU, type Beep, type Engine, type GameFactory, type GameMeta, type Scene } from "./arcade/engine";
+import * as snakeGame from "./arcade/games/snake";
+import * as catastroGame from "./arcade/games/catastro";
+import * as breakoutGame from "./arcade/games/breakout";
+import * as platformerGame from "./arcade/games/platformer";
+import * as fpsGame from "./arcade/games/fps";
 
 export interface ArcadeResult { score: number; stage: number; cleared: boolean; hi: number; newHi: boolean }
 export interface ArcadeOpts {
@@ -15,8 +26,14 @@ export interface ArcadeOpts {
   onExit: (r: ArcadeResult) => void;
 }
 
-export const STAGE_COUNT = 4;
-const LS_STAGE = "arcadeStage";
+/** año y archivo de cada nivel (lo usa también la terminal para `pong 2023`) */
+export const STAGE_INFO = [
+  { year: 2019, file: "pong.sh" }, { year: 2020, file: "snake.py" }, { year: 2021, file: "fisica3d.m" },
+  { year: 2022, file: "catastro.exe" }, { year: 2023, file: "bd-2.sql" }, { year: 2024, file: "multimedia.gd" },
+  { year: 2025, file: "clean-arch.nes" }, { year: 2026, file: "kernel-panic.sh" },
+] as const;
+export const STAGE_COUNT = STAGE_INFO.length;
+const LS_STAGE = "arcadeLevel"; // clave nueva: el progreso del arcade de 4 niveles no corresponde
 const LS_HI = "arcadeHi";
 
 const lsGet = (k: string) => { try { return parseInt(localStorage.getItem(k) || "0", 10) || 0; } catch { return 0; } };
@@ -26,19 +43,7 @@ const lsSet = (k: string, v: number) => { try { localStorage.setItem(k, String(v
 // en desarrollo todo está desbloqueado (para probar cualquier nivel con `pong N`)
 export const unlockedStage = () => (import.meta.env.DEV ? STAGE_COUNT - 1 : Math.min(STAGE_COUNT - 1, lsGet(LS_STAGE)));
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const TAU = Math.PI * 2;
 
-interface Scene {
-  update(dt: number): void;
-  draw(): void;
-  resize?(): void;
-  down?(x: number, y: number, touch: boolean): void;
-  dispose?(): void;
-  /** objetivo actual con progreso (se muestra siempre bajo la barra superior) */
-  objective(): string;
-}
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 
@@ -107,7 +112,7 @@ export function startArcade(o: ArcadeOpts): void {
   // ── entrada ─────────────────────────────────────────────────────────────────
   const keys = new Set<string>();
   const key = (...ks: string[]) => ks.some((k) => keys.has(k));
-  const ptr = { x: 0, y: 0, down: false, moved: false, lookDX: 0 };
+  const ptr = { x: 0, y: 0, down: false, moved: false, lookDX: 0, lookDY: 0 };
   // toques activos (para el joystick virtual del shooter)
   const touches = new Map<number, { x: number; y: number; sx: number; sy: number }>();
 
@@ -138,24 +143,39 @@ export function startArcade(o: ArcadeOpts): void {
   let transT = 0, introT = 0, shake = 0, flash = 0, hurtCool = 0;
   const particles: Particle[] = [];
 
-  const STAGES = [
-    { file: "pong.sh", name: t("PONG", "PONG"), make: () => pong2D(),
+  const mouseOr = (m: string, k: string) => (coarse ? m : k);
+  type Stage = { era: string; name: string; story: string; goal: string; tip: string; ctrl: string; make: () => Scene };
+  /** un juego en módulo (games/*.ts) aporta sus textos con `meta` */
+  const mod = (era: string, g: { meta: GameMeta; create: GameFactory }): Stage => {
+    const L = (x: { es: string; en: string }) => t(x.es, x.en);
+    return {
+      era, name: L(g.meta.name), story: L(g.meta.story), goal: L(g.meta.goal), tip: L(g.meta.tip),
+      ctrl: coarse ? L(g.meta.ctrl.touch) : L(g.meta.ctrl.desktop), make: () => g.create(E),
+    };
+  };
+  const STAGES = ([
+    { era: t("los orígenes", "the origins"), name: "PONG", make: () => pong2D(),
+      story: t("SENA, primer repo y ejercicios en C/C++. Todo empieza con algo simple.", "SENA, first repo and C/C++ exercises. It all starts with something simple."),
       goal: t("Mete 3 goles: que la bola pase la pala rosada de la CPU (derecha).", "Score 3 goals: get the ball past the CPU's pink paddle (right)."),
       tip: t("Devuelve 3 seguidas y la bola se enciende 🔥 · pierdes ♥ si la bola pasa tu pala", "Return 3 in a row and the ball catches fire 🔥 · you lose ♥ if the ball gets past you"),
-      ctrl: coarse ? t("arrastra para mover la pala", "drag to move the paddle") : t("ratón · W/S · ↑/↓", "mouse · W/S · ↑/↓") },
-    { file: "pong3d.bin", name: t("PONG 3D", "PONG 3D"), make: () => pong3D(),
+      ctrl: mouseOr(t("arrastra para mover la pala", "drag to move the paddle"), t("ratón · W/S · ↑/↓", "mouse · W/S · ↑/↓")) },
+    mod(t("pandemia y GLUD dorado", "pandemic and GLUD's golden age"), snakeGame),
+    { era: t("universidad plena", "full-on university"), name: t("PONG 3D", "3D PONG"), make: () => pong3D(),
+      story: t("Física 1 en MATLAB (y en YouTube): el pong ahora tiene profundidad.", "Physics 1 in MATLAB (and on YouTube): pong now has depth."),
       goal: t("Mete 3 goles: que la bola pase la pala rosada del fondo del túnel.", "Score 3 goals: get the ball past the pink paddle at the end of the tunnel."),
       tip: t("El anillo verde marca qué tan lejos está la bola · muévete al golpear para darle efecto", "The green ring shows how far the ball is · move as you hit to add spin"),
-      ctrl: coarse ? t("arrastra para mover la pala", "drag to move the paddle") : t("ratón · WASD · flechas", "mouse · WASD · arrows") },
-    { file: "naves.exe", name: t("NAVES", "STARSHIPS"), make: () => shmup(),
+      ctrl: mouseOr(t("arrastra para mover la pala", "drag to move the paddle"), t("ratón · WASD · flechas", "mouse · WASD · arrows")) },
+    mod(t("el año callado (solo en apariencia)", "the quiet year (only on the surface)"), catastroGame),
+    mod(t("el gran año", "the big year"), breakoutGame),
+    { era: t("el salto profesional", "the professional leap"), name: t("NAVES", "STARSHIPS"), make: () => shmup(),
+      story: t("\"Un shooter 2D en Godot\" y la prueba técnica que abrió la puerta del banco.", "\"A 2D shooter in Godot\" and the tech test that opened the bank's door."),
       goal: t("Sobrevive a 3 oleadas de bugs y derriba al jefe: el MONOLITO LEGACY.", "Survive 3 bug waves and take down the boss: the LEGACY MONOLITH."),
       tip: t("Disparas solo: tú esquiva · recoge 3x (triple), ◇ (escudo) y ♥ (vida)", "You fire automatically: just dodge · grab 3x (triple), ◇ (shield) and ♥ (life)"),
-      ctrl: coarse ? t("arrastra para volar · disparo automático", "drag to fly · auto-fire") : t("ratón o WASD · disparo automático", "mouse or WASD · auto-fire") },
-    { file: "doom.sh", name: t("SHOOTER", "SHOOTER"), make: () => fps(),
-      goal: t("Encuentra y elimina los 8 bugs del laberinto, incluido el jefe KERNEL PANIC.", "Find and wipe out the 8 bugs in the maze, boss KERNEL PANIC included."),
-      tip: t("El minimapa (arriba a la derecha) muestra los bugs que ya viste · esquiva sus bolas rosadas", "The minimap (top right) shows the bugs you've spotted · dodge their pink orbs"),
-      ctrl: coarse ? t("izq: moverse · der: girar y disparar", "left: move · right: turn & shoot") : t("WASD moverse · ratón/←→ girar · clic/espacio disparar", "WASD move · mouse/←→ turn · click/space shoot") },
-  ];
+      ctrl: mouseOr(t("arrastra para volar · disparo automático", "drag to fly · auto-fire"), t("ratón o WASD · disparo automático", "mouse or WASD · auto-fire")) },
+    mod(t("un 2025 callado", "a quiet 2025"), platformerGame),
+    mod(t("maestría y presente", "master's and the present"), fpsGame),
+  ] as Stage[]).map((st, i) => ({ ...st, ...STAGE_INFO[i] }));
+
 
   const addScore = (n: number) => { score += n; };
 
@@ -178,12 +198,33 @@ export function startArcade(o: ArcadeOpts): void {
     return true;
   }
 
+  // ── API que reciben los juegos en módulo (ver arcade/engine.ts) ─────────────
+  let elapsed = 0;
+  const E: Engine = {
+    ctx, cvs, C, coarse, reduce, keys, ptr, touches, sfx,
+    get W() { return W; }, get H() { return H; }, get hq() { return hq; }, get time() { return elapsed; },
+    t, font, key,
+    beep: o.beep,
+    burst: (x, y, color, n, speed, size) => burst(x, y, color, n, speed, size),
+    shake: (n) => shakeIt(n),
+    flash: (a) => { if (!reduce) flash = Math.max(flash, a); },
+    hurt: () => hurt(),
+    addLife: () => { lives = Math.min(5, lives + 1); },
+    lives: () => lives,
+    addScore: (n) => addScore(n),
+    clear: () => clearStage(),
+    playing: () => state === "play",
+    glow: (c, b) => glow(c, b),
+    hpBar: (x, y, w, f, col) => hpBar(x, y, w, f, col),
+    filter: (arr, keep) => filter(arr, keep),
+  };
+
   function saveHi() { if (score > hi) { hi = score; lsSet(LS_HI, hi); } }
 
   function startStage(i: number) {
     stage = i; lives = maxLives(); stageStartScore = score; hurtCool = 0;
     particles.length = 0;
-    scene?.dispose?.();
+    scene?.dispose?.(); if (document.pointerLockElement === cvs) document.exitPointerLock?.();
     scene = STAGES[i].make();
     state = "intro"; introT = 0;
   }
@@ -206,6 +247,33 @@ export function startArcade(o: ArcadeOpts): void {
 
   function burstConfetti() {
     for (let i = 0; i < 6; i++) burst(rand(W * 0.2, W * 0.8), rand(H * 0.2, H * 0.6), [C.acc, C.pink, C.warn, C.cyan][i % 4], 30, 320, 4);
+  }
+
+  // ── fondos de época: capas pre-renderizadas ────────────────────────────────
+  // Se pintan una vez (al crear la escena y en cada resize) a la resolución real del búfer (S)
+  // y por frame solo se copian con drawImage: lo único que se anima son trazos baratos.
+  function bgLayer(paint: (g: CanvasRenderingContext2D) => void, w = W, h = H): HTMLCanvasElement {
+    const cv = document.createElement("canvas");
+    cv.width = Math.max(1, Math.ceil(w * S)); cv.height = Math.max(1, Math.ceil(h * S));
+    const g = cv.getContext("2d")!;
+    g.scale(S, S); g.lineCap = "round"; g.lineJoin = "round";
+    paint(g);
+    return cv;
+  }
+  /** pseudoaleatorio determinista (el fondo no cambia al redimensionar) */
+  const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  /** pixel art: cada carácter es un píxel ('.' transparente) y `pal` asigna su color */
+  function pix(g: CanvasRenderingContext2D, rows: string[], x: number, y: number, px: number, pal: Record<string, string>) {
+    for (let r = 0; r < rows.length; r++) for (let c = 0; c < rows[r].length; c++) {
+      const col = pal[rows[r][c]];
+      if (col) { g.fillStyle = col; g.fillRect(x + c * px, y + r * px, px + 0.25, px + 0.25); }
+    }
+  }
+  /** viñeta CRT: oscurece las esquinas como un tubo de fósforo */
+  function vignette(g: CanvasRenderingContext2D, a: number, rgb = "0,0,0") {
+    const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+    vg.addColorStop(0, `rgba(${rgb},0)`); vg.addColorStop(1, `rgba(${rgb},${a})`);
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
   }
 
   // ═════════════════════════════════════════════════════════════════════════════
@@ -236,8 +304,100 @@ export function startArcade(o: ArcadeOpts): void {
     serve(-1);
     const pop = (txt: string) => { popText = txt; popT = 1.1; };
 
+    // ── fondo 2019 · los orígenes ──
+    // código en fósforo que sube despacio (C de Fundamentos, hilos en Java, A-Frame, AMPL, Arch-Matic),
+    // un horizonte en malla con la escena "hola mundo" de A-Frame, Tux y GLUDZILLA-VR en píxeles,
+    // el prompt de la terminal y un marco de monitor CRT
+    const CODE = [
+      t("/* fundamentos.c — 82 commits en equipo */", "/* fundamentos.c — 82 team commits */"), "#include <stdio.h>", "",
+      "int main(void) {", "    int n, i;", "    scanf(\"%d\", &n);", "    for (i = 1; i <= n; i++)", "        printf(\"%d\\n\", i * i);", "    return 0;", "}", "",
+      "$ gcc fundamentos.c -o fund -Wall", "$ ./fund", "",
+      t("// hilos: ¿Quién ganará la carrera?", "// threads: who will win the race?"),
+      "class Corredor extends Thread {", "    public void run() {", "        while (pos < META) avanzar();", "    }", "}", "",
+      "<a-scene>", "  <a-box color=\"#4CC3D9\"></a-box>", "  <a-sphere color=\"#EF2D5E\"></a-sphere>", "  <a-cylinder color=\"#FFC65D\"></a-cylinder>", "</a-scene>", "",
+      t("# optimización en AMPL", "# optimization in AMPL"), "minimize costo: sum {i in I} c[i] * x[i];", "",
+      "$ git init   # 2018-08-30", "$ git push origin master", "",
+      "# arch-matic.sh", t("# NO EJECUTAR DIRECTAMENTE", "# DO NOT RUN DIRECTLY"), "$ sudo pacman -Syu", "",
+      "/* JuanFelipeCV — GNU GPL v3 */", "$ man gnubies", "",
+    ];
+    const LH = 15;
+    let codeL: HTMLCanvasElement | null = null, bgL: HTMLCanvasElement | null = null, hz = 0, promptW = 0, promptY = 0;
+    function buildBg() {
+      hz = Math.round(H * 0.8);
+      const u = clamp(Math.min(W, H) * 0.045, 14, 30), narrow = W < 600;
+      codeL = bgLayer((g) => {
+        g.font = font(narrow ? 10 : 12); g.textBaseline = "top"; g.fillStyle = C.fg;
+        const n = CODE.length, colW = Math.max(300, W / 2);
+        for (let col = 0, x = M + PW + 26; x < W - 40; col++, x += colW) {
+          for (let i = 0; i < n; i++) {
+            const line = CODE[(i + col * 19) % n];
+            g.globalAlpha = (line.startsWith("$") ? 0.17 : line.startsWith("/") || line.startsWith("#") ? 0.08 : 0.11) * (narrow ? 0.7 : 1);
+            g.fillText(line, x, i * LH);
+          }
+        }
+      }, W, CODE.length * LH);
+      bgL = bgLayer((g) => {
+        // suelo: tapa el código bajo el horizonte y recibe la malla en perspectiva
+        const fl = g.createLinearGradient(0, hz - 50, 0, H);
+        fl.addColorStop(0, "rgba(0,0,0,0)"); fl.addColorStop(50 / (H - hz + 50), "rgba(0,0,0,0.92)"); fl.addColorStop(1, "rgba(0,0,0,0.96)");
+        g.fillStyle = fl; g.fillRect(0, hz - 50, W, H - hz + 50);
+        g.strokeStyle = C.fg; g.lineWidth = 1;
+        g.globalAlpha = 0.16; g.beginPath();
+        for (let i = -24; i <= 24; i++) { g.moveTo(W / 2 + i * 22, hz); g.lineTo(W / 2 + i * 120, H); }
+        g.stroke();
+        g.globalAlpha = 0.45; g.beginPath(); g.moveTo(0, hz); g.lineTo(W, hz); g.stroke();
+        // la escena de ejemplo de A-Frame en alambre: caja, esfera y cilindro
+        const ax = W * (narrow ? 0.2 : 0.335), ay = hz - u * 0.15;
+        g.globalAlpha = 0.5; g.lineWidth = 1.2;
+        g.strokeStyle = "#4CC3D9"; // caja (dos caras visibles + profundidad)
+        const bx = ax - u * 2.1, bs = u * 1.1, d = bs * 0.45;
+        g.strokeRect(bx, ay - bs, bs, bs);
+        g.beginPath(); g.moveTo(bx, ay - bs); g.lineTo(bx + d, ay - bs - d); g.lineTo(bx + bs + d, ay - bs - d); g.lineTo(bx + bs, ay - bs);
+        g.moveTo(bx + bs + d, ay - bs - d); g.lineTo(bx + bs + d, ay - d); g.lineTo(bx + bs, ay); g.stroke();
+        g.strokeStyle = "#EF2D5E"; // esfera con meridianos
+        const sr = u * 0.75, sy = ay - sr - u * 0.35;
+        g.beginPath(); g.arc(ax, sy, sr, 0, TAU); g.stroke();
+        g.beginPath(); g.ellipse(ax, sy, sr * 0.4, sr, 0, 0, TAU); g.ellipse(ax, sy, sr, sr * 0.32, 0, 0, TAU); g.stroke();
+        g.strokeStyle = "#FFC65D"; // cilindro
+        const cxl = ax + u * 1.9, cr = u * 0.5, ch = u * 1.5;
+        g.beginPath(); g.ellipse(cxl, ay - ch, cr, cr * 0.32, 0, 0, TAU); g.stroke();
+        g.beginPath(); g.ellipse(cxl, ay, cr, cr * 0.32, 0, 0, Math.PI); g.moveTo(cxl - cr, ay); g.lineTo(cxl - cr, ay - ch); g.moveTo(cxl + cr, ay); g.lineTo(cxl + cr, ay - ch); g.stroke();
+        g.globalAlpha = 0.32; g.fillStyle = C.fg; g.font = font(10); g.textAlign = "center";
+        g.fillText("<a-scene>", ax, hz + 16);
+        // Tux (linuxero de corazón) y GLUDZILLA-VR, en píxeles de fósforo
+        const px = Math.max(2, Math.round(u / 7));
+        const TUX = [
+          "...kkkk...", "..kkkkkk..", "..kwkkwk..", "..kkyykk..", ".kkwwwwkk.", ".kwwwwwwk.",
+          "kkwwwwwwkk", "kwwwwwwwwk", "kwwwwwwwwk", ".kwwwwwwk.", ".yykkkkyy.", "yyy....yyy",
+        ];
+        g.globalAlpha = 0.42;
+        pix(g, TUX, Math.round(W * 0.44), hz - TUX.length * px + px, px, { k: C.dim, w: C.br, y: C.warn });
+        const ZILLA = [
+          ".........ggggg..", "........ggwgggg.", "........ggggggg.", "........gggg....", "...s...ggggggg..",
+          "...ss.ggggggg...", "s..sssgggggg....", "ss..sggggggggg..", ".ssggggggggg.g..", "..gggggggggg....",
+          "...ggggggggg....", ".....gg..gg.....", ".....gg...gg....",
+        ];
+        const zpx = px + 1, zx = Math.round(W * 0.72);
+        g.globalAlpha = 0.4;
+        pix(g, ZILLA, zx, hz - ZILLA.length * zpx + zpx, zpx, { g: C.fg, w: C.br, s: C.pink });
+        g.globalAlpha = 0.3; g.font = font(9); g.fillStyle = C.fg;
+        g.fillText("GLUDZILLA-VR", zx + 8 * zpx, hz + 16);
+        g.fillText("GNU/Linux", Math.round(W * 0.44) + 5 * px, hz + 16);
+        // prompt de la terminal sobre el horizonte (el cursor parpadea en draw)
+        g.globalAlpha = 0.5; g.textAlign = "left"; g.font = font(12); g.fillStyle = C.fg;
+        const pr = narrow ? "~/sena$ ./pong.sh " : "juferoga@arch:~/sena$ ./pong.sh ";
+        promptY = narrow ? hz + 44 : hz - 12;
+        g.fillText(pr, M + PW + 26, promptY); promptW = g.measureText(pr).width;
+        // monitor CRT: viñeta + bisel redondeado
+        g.globalAlpha = 1; vignette(g, 0.6);
+        g.globalAlpha = 0.28; g.strokeStyle = C.dim; g.lineWidth = 2;
+        g.beginPath(); g.roundRect(5, 5, W - 10, H - 10, 22); g.stroke();
+      });
+    }
+    buildBg();
+
     return {
-      resize: fit,
+      resize: () => { fit(); buildBg(); },
       objective: () => t(`🎯 Goles ${p.score}/${WIN}`, `🎯 Goals ${p.score}/${WIN}`),
       update(dt) {
         const py0 = p.y;
@@ -313,6 +473,20 @@ export function startArcade(o: ArcadeOpts): void {
       },
       draw() {
         ctx.fillStyle = "rgba(0,0,0,0.88)"; ctx.fillRect(0, 0, W, H);
+        // fondo de época: código que sube, suelo en malla con líneas que avanzan, cursor
+        if (codeL && bgL) {
+          const ch = CODE.length * LH, off = reduce ? 0 : (elapsed * 9) % ch;
+          for (let y = 70 - off; y < hz; y += ch) ctx.drawImage(codeL, 0, y, W, ch);
+          ctx.drawImage(bgL, 0, 0, W, H);
+          ctx.strokeStyle = C.fg; ctx.lineWidth = 1;
+          const ph = reduce ? 0.5 : (elapsed * 0.3) % 1;
+          for (let i = 0; i < 7; i++) {
+            const k = (i + ph) / 7, y = hz + (H - hz) * k * k;
+            ctx.globalAlpha = 0.05 + k * 0.2; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          }
+          if (reduce || Math.floor(elapsed * 2) % 2 === 0) { ctx.globalAlpha = 0.5; ctx.fillStyle = C.fg; ctx.fillRect(M + PW + 26 + promptW, promptY - 11, 7, 13); }
+          ctx.globalAlpha = 1;
+        }
         ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.setLineDash([8, 14]);
         ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.font = font(64, true); ctx.textAlign = "center";
@@ -382,8 +556,133 @@ export function startArcade(o: ArcadeOpts): void {
       ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.strokeRect(a.X, a.Y, c.X - a.X, c.Y - a.Y);
     }
 
+    // ── fondo 2021 · universidad plena ──
+    // una figura de MATLAB (ejes, `grid on`, tiros parabólicos de Física 1 con su leyenda y fórmulas),
+    // malla en las paredes del túnel, un portal estilo Rick & Morty al fondo (la práctica de Angular),
+    // el letrero ON AIR de la radio del GLUD con su onda, y el ruteo de Traefik hacia las clases que dictó
+    const MB = "#0072BD", MO = "#D95319", MY = "#EDB120", PORTAL = "#97ce4c"; // colores por defecto de MATLAB
+    let bgL: HTMLCanvasElement | null = null, portalL: HTMLCanvasElement | null = null, portalR = 0;
+    let wide = false, air = { x: 0, y: 0 }, wave = { x: 0, y: 0, w: 0 };
+    let routes: { x1: number; y1: number; x2: number; y2: number; x3: number; y3: number }[] = [];
+    function buildBg() {
+      const mg = cx - RX; wide = mg >= 170;
+      const top = 86, bot = H - 64;
+      const lineAt = (g: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) => { g.moveTo(x1, y1); g.lineTo(x2, y2); };
+      // tiro parabólico normalizado (alcance máx. 1 a 45°) dentro de una caja
+      const parabolas = (g: CanvasRenderingContext2D, bx: number, by: number, bw: number, bh: number, a: number) => {
+        [[30, MO], [45, MB], [60, MY]].forEach(([deg, col], k) => {
+          const th = (deg as number) * Math.PI / 180, R = Math.sin(2 * th), Hm = Math.sin(th) ** 2 / 2;
+          g.strokeStyle = col as string; g.fillStyle = col as string; g.globalAlpha = a; g.lineWidth = 1.5; g.beginPath();
+          for (let i = 0; i <= 40; i++) {
+            const f = i / 40, x = bx + f * R * bw, y = by - (4 * Hm * f * (1 - f)) / 0.5 * bh * 0.5;
+            if (i) g.lineTo(x, y); else g.moveTo(x, y);
+          }
+          g.stroke();
+          for (let i = 0; i <= 40; i += 5) { // marcadores 'o' de plot()
+            const f = i / 40; g.beginPath(); g.arc(bx + f * R * bw, by - (4 * Hm * f * (1 - f)) / 0.5 * bh * 0.5, 2.2, 0, TAU); g.stroke();
+          }
+          if (k === 1) { // vector velocidad inicial
+            g.beginPath(); lineAt(g, bx, by, bx + bw * 0.16, by - bh * 0.16 * 1.4);
+            lineAt(g, bx + bw * 0.16, by - bh * 0.224, bx + bw * 0.16 - 8, by - bh * 0.224 + 2); lineAt(g, bx + bw * 0.16, by - bh * 0.224, bx + bw * 0.16 - 3, by - bh * 0.224 + 8); g.stroke();
+          }
+        });
+        // ejes de la figura
+        g.globalAlpha = a * 0.8; g.strokeStyle = "#9aa4b1"; g.lineWidth = 1; g.beginPath();
+        lineAt(g, bx, by - bh, bx, by); lineAt(g, bx, by, bx + bw, by);
+        for (let i = 0; i <= 4; i++) { lineAt(g, bx + (bw * i) / 4, by, bx + (bw * i) / 4, by + 4); lineAt(g, bx - 4, by - (bh * i) / 4, bx, by - (bh * i) / 4); }
+        g.stroke();
+        g.fillStyle = "#9aa4b1"; g.font = font(9); g.textAlign = "center";
+        for (let i = 0; i <= 4; i++) g.fillText(String(i * 10), bx + (bw * i) / 4, by + 14);
+        g.textAlign = "right"; for (let i = 1; i <= 4; i++) g.fillText(String(i * 5), bx - 6, by - (bh * i) / 4 + 3);
+        g.textAlign = "center"; g.fillText("x [m]", bx + bw / 2, by + 26);
+      };
+      bgL = bgLayer((g) => {
+        // grid on: cuadrícula punteada de fondo
+        g.strokeStyle = "#ffffff"; g.globalAlpha = 0.035; g.lineWidth = 1; g.setLineDash([2, 4]); g.beginPath();
+        for (let x = 40; x < W; x += 40) lineAt(g, x, top, x, bot);
+        for (let y = top; y < bot; y += 40) lineAt(g, 0, y, W, y);
+        g.stroke(); g.setLineDash([]);
+        // malla longitudinal en las cuatro caras del túnel (estilo mesh() / display vectorial)
+        g.strokeStyle = C.fg; g.globalAlpha = 0.07; g.beginPath();
+        for (let k = -3; k <= 3; k++) {
+          const f = k / 4;
+          for (const [x, y] of [[f, 1], [f, -1], [1, f], [-1, f]]) { const a = proj(x, y, 0), b = proj(x, y, 1); lineAt(g, a.X, a.Y, b.X, b.Y); }
+        }
+        g.stroke();
+        if (wide) {
+          // margen izquierdo: fórmulas arriba, gráfica abajo
+          const lx = 22;
+          g.textAlign = "left"; g.font = font(11); g.fillStyle = C.fg;
+          const F = [
+            ">> fisica3d", "", "F = m·a", "x(t) = v₀·cos θ·t", t("y(t) = v₀·sen θ·t − ½·g·t²", "y(t) = v₀·sin θ·t − ½·g·t²"),
+            "g = 9.81 m/s²", "", ">> plot(x, y, 'o-')", ">> legend('30°','45°','60°')",
+          ];
+          F.forEach((l, i) => { g.globalAlpha = l.startsWith(">>") ? 0.28 : 0.4; g.fillText(l, lx, top + 28 + i * 18); });
+          const bw = Math.min(mg - 70, 230), bh = bw * 0.8;
+          parabolas(g, lx + 18, Math.min(bot - 30, top + 230 + bh), bw, bh, 0.5);
+          // leyenda de MATLAB
+          const ly = Math.min(bot - 30, top + 230 + bh) - bh - 6;
+          g.globalAlpha = 0.35; g.strokeStyle = "#9aa4b1"; g.strokeRect(lx + 18 + bw - 74, ly, 74, 48);
+          [["30°", MO], ["45°", MB], ["60°", MY]].forEach(([l, col], i) => {
+            g.globalAlpha = 0.6; g.strokeStyle = col; g.beginPath(); lineAt(g, lx + bw - 48, ly + 12 + i * 13, lx + bw - 30, ly + 12 + i * 13); g.stroke();
+            g.fillStyle = "#c9d1d9"; g.textAlign = "left"; g.font = font(9); g.fillText(l, lx + bw - 24, ly + 15 + i * 13);
+          });
+          // margen derecho: radio del GLUD + ruteo de Traefik
+          const rx = W - mg / 2;
+          air = { x: rx, y: top + 30 };
+          g.globalAlpha = 0.4; g.fillStyle = "#c9d1d9"; g.textAlign = "center"; g.font = font(10);
+          g.fillText(t("radio GLUD · OBS", "GLUD radio · OBS"), rx, top + 64);
+          wave = { x: rx - Math.min(mg * 0.38, 90), y: top + 96, w: Math.min(mg * 0.76, 180) };
+          g.globalAlpha = 0.15; g.strokeStyle = C.fg; g.strokeRect(wave.x, wave.y - 18, wave.w, 36);
+          // traefik: :443 → proxy → servicios (las clases de Angular y Docker, la API de Rick & Morty)
+          const ty = top + 176, tw = Math.min(mg - 40, 200), tx = rx - tw / 2;
+          const box = (x: number, y: number, w: number, label: string, col: string) => {
+            g.globalAlpha = 0.18; g.fillStyle = col; g.fillRect(x, y - 11, w, 22);
+            g.globalAlpha = 0.5; g.strokeStyle = col; g.strokeRect(x, y - 11, w, 22);
+            g.globalAlpha = 0.7; g.fillStyle = "#c9d1d9"; g.font = font(10); g.textAlign = "center"; g.fillText(label, x + w / 2, y + 4);
+          };
+          const srv = ["angularClass", "dockerClass", "rick&morty API"], sy0 = ty + 52;
+          g.globalAlpha = 0.25; g.strokeStyle = C.cyan; g.setLineDash([3, 3]); g.beginPath();
+          lineAt(g, rx, ty - 28, rx, ty - 11);
+          lineAt(g, tx + tw * 0.2, ty, tx - 6, ty);
+          for (let i = 0; i < 3; i++) { lineAt(g, tx - 6, ty, tx - 6, sy0 + i * 40); lineAt(g, tx - 6, sy0 + i * 40, tx + 4, sy0 + i * 40); }
+          g.stroke(); g.setLineDash([]);
+          routes = srv.map((_, i) => ({ x1: tx + tw * 0.2, y1: ty, x2: tx - 6, y2: ty, x3: tx + 4, y3: sy0 + i * 40 }));
+          g.globalAlpha = 0.45; g.fillStyle = "#c9d1d9"; g.font = font(10); g.textAlign = "center"; g.fillText(":443 → web", rx, ty - 32);
+          box(tx + tw * 0.2, ty, tw * 0.6, "traefik", C.cyan);
+          srv.forEach((l, i) => box(tx + 4, sy0 + i * 40, tw - 4, l, i === 2 ? PORTAL : i === 1 ? "#2496ED" : "#DD0031"));
+          g.globalAlpha = 0.3; g.font = font(9); g.fillStyle = "#c9d1d9"; g.fillText("acme.json · chmod 600", rx, sy0 + 3 * 40 + 4);
+        } else {
+          // pantalla angosta: la gráfica tenue detrás del túnel y las fórmulas abajo
+          const bw = W * 0.7;
+          parabolas(g, W * 0.15, H * 0.82, bw, bw * 0.75, 0.16);
+          air = { x: W - 54, y: 96 };
+          g.globalAlpha = 0.4; g.textAlign = "center"; g.font = font(10); g.fillStyle = C.fg;
+          g.fillText("F = m·a   ·   g = 9.81 m/s²", W / 2, H - 74 + 8);
+        }
+        g.globalAlpha = 1; vignette(g, 0.5);
+      });
+      // portal al fondo del túnel (gira en draw)
+      const back = proj(1, 1, 1), c0 = proj(0, 0, 1);
+      portalR = Math.min(back.X - c0.X, back.Y - c0.Y) * 0.92;
+      const d = portalR * 2 + 4;
+      portalL = bgLayer((g) => {
+        const m = d / 2;
+        const rg = g.createRadialGradient(m, m, 0, m, m, portalR);
+        rg.addColorStop(0, "rgba(220,255,180,0.5)"); rg.addColorStop(0.5, "rgba(151,206,76,0.25)"); rg.addColorStop(1, "rgba(151,206,76,0)");
+        g.fillStyle = rg; g.beginPath(); g.arc(m, m, portalR, 0, TAU); g.fill();
+        g.strokeStyle = PORTAL; g.lineWidth = 1.5;
+        for (let arm = 0; arm < 4; arm++) {
+          g.globalAlpha = 0.55; g.beginPath();
+          for (let i = 0; i <= 30; i++) { const f = i / 30, a = arm * TAU / 4 + f * 3.6, r = f * portalR * 0.95; if (i) g.lineTo(m + Math.cos(a) * r, m + Math.sin(a) * r); else g.moveTo(m, m); }
+          g.stroke();
+        }
+      }, d, d);
+    }
+    buildBg();
+
     return {
-      resize: fit,
+      resize: () => { fit(); buildBg(); },
       objective: () => t(`🎯 Goles ${pl.score}/${WIN}`, `🎯 Goals ${pl.score}/${WIN}`),
       update(dt) {
         const px0 = pl.x, py0 = pl.y;
@@ -434,6 +733,39 @@ export function startArcade(o: ArcadeOpts): void {
       },
       draw() {
         ctx.fillStyle = "rgba(0,0,0,0.92)"; ctx.fillRect(0, 0, W, H);
+        // fondo de época: figura de MATLAB, portal girando, ON AIR, onda de radio y paquetes por Traefik
+        if (bgL && portalL) {
+          ctx.drawImage(bgL, 0, 0, W, H);
+          const pc = proj(0, 0, 1), d = portalR * 2 + 4;
+          ctx.save(); ctx.translate(pc.X, pc.Y); if (!reduce) ctx.rotate(-elapsed * 0.6);
+          ctx.globalAlpha = 0.45; ctx.drawImage(portalL, -d / 2, -d / 2, d, d); ctx.restore();
+          // letrero ON AIR: la luz respira (fija con movimiento reducido)
+          const on = reduce ? 0.8 : 0.55 + 0.35 * Math.sin(elapsed * 3);
+          const aw = wide ? 92 : 64, ah = wide ? 24 : 18;
+          ctx.globalAlpha = 0.25 * on; ctx.fillStyle = C.err; ctx.fillRect(air.x - aw / 2, air.y - ah / 2, aw, ah);
+          ctx.globalAlpha = 0.45 + 0.4 * on; ctx.strokeStyle = C.err; ctx.lineWidth = 1.5; ctx.strokeRect(air.x - aw / 2, air.y - ah / 2, aw, ah);
+          ctx.fillStyle = C.err; ctx.font = font(wide ? 12 : 10, true); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("● ON AIR", air.x, air.y + 1); ctx.textBaseline = "alphabetic";
+          if (wide) {
+            const tt = reduce ? 1 : elapsed;
+            ctx.globalAlpha = 0.5; ctx.strokeStyle = C.fg; ctx.lineWidth = 1; ctx.beginPath();
+            for (let i = 0; i <= 60; i++) {
+              const f = i / 60, x = wave.x + f * wave.w;
+              const y = wave.y + Math.sin(f * 26 + tt * 7) * Math.sin(f * 5 - tt * 2.3) * 13 * Math.sin(f * Math.PI);
+              if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+            }
+            ctx.stroke();
+            if (!reduce) { // paquetes HTTP que Traefik reparte entre los servicios
+              ctx.fillStyle = C.cyan; ctx.globalAlpha = 0.7;
+              routes.forEach((r, i) => {
+                const k = (elapsed * 0.35 + i / 3) % 1, l1 = Math.hypot(r.x2 - r.x1, r.y2 - r.y1), l2 = Math.abs(r.y3 - r.y2), l3 = r.x3 - r.x2, L = l1 + l2 + l3, s0 = k * L;
+                const [x, y] = s0 < l1 ? [r.x1 + (r.x2 - r.x1) * s0 / l1, r.y1 + (r.y2 - r.y1) * s0 / l1] : s0 < l1 + l2 ? [r.x2, r.y2 + (s0 - l1)] : [r.x2 + (s0 - l1 - l2), r.y3];
+                ctx.fillRect(x - 2, y - 2, 4, 4);
+              });
+            }
+          }
+          ctx.globalAlpha = 1;
+        }
         // túnel: anillos de profundidad + aristas
         for (let i = 0; i <= 8; i++) rect(i / 8, `rgba(255,255,255,${0.05 + (1 - i / 8) * 0.1})`);
         ctx.strokeStyle = "rgba(255,255,255,0.14)"; ctx.lineWidth = 1;
@@ -484,7 +816,7 @@ export function startArcade(o: ArcadeOpts): void {
     const shots: Bullet[] = [], foes: Bullet[] = [], enemies: Enemy[] = [], powers: Power[] = [];
     const stars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.2, 1) }));
     let wave = 0, waveT = 1.2, spawnQ: (() => void)[] = [], spawnT = 0, bossDead = 0;
-    const boss = { on: false, x: W / 2, y: -140, hp: 120, max: 120, t: 0, cool: 0, ring: 0, flash: 0, w: 150 };
+    const boss = { on: false, x: W / 2, y: -140, hp: 96, max: 96, t: 0, cool: 0, ring: 0, flash: 0, w: 150 };
 
     const enemy = (e: Partial<Enemy> & Pick<Enemy, "x" | "y" | "kind">) => {
       const base: Enemy = { vx: 0, vy: 110, hp: 1, max: 1, r: 16, t: 0, cool: rand(1, 2.5), base: e.x, amp: 0, flash: 0, ...e } as Enemy;
@@ -520,13 +852,179 @@ export function startArcade(o: ArcadeOpts): void {
       if (hurt()) { ship.inv = 2; ship.triple = 0; }
     }
 
+    // ── fondo 2024 · el salto profesional ──
+    // el visor 2D del editor de Godot (reglas, ejes rojo/verde, rectángulo del viewport),
+    // objetos lejanos en paralaje: nebulosa "cloud", satélite-robot de Godot, el planeta catastral
+    // (IGAC · XTF), el ícono de accesibilidad (MinTIC) y la constelación gitflow de ptbdb;
+    // un sismógrafo (gritos en terremotos con IA) y, al despegar, el skyline de Bogotá con Monserrate.
+    let frameL: HTMLCanvasElement | null = null, skyL: HTMLCanvasElement | null = null, rageL: HTMLCanvasElement | null = null;
+    let sprites: { cv: HTMLCanvasElement; w: number; h: number }[] = [];
+    let skyH = 0, bgT = 0, beacon = { x: 0, y: 0 };
+    // posición de cada objeto lejano: x en fracción del ancho, y en px; aparecen escalonados
+    const decos = [0, 1, 2, 3, 4, 5].map((i) => ({ i, x: [0.78, 0.22, 0.72, 0.28, 0.8, 0.2][i], y: [0.08, 0.3, -0.35, -0.75, -1.1, -1.5][i], sp: [18, 26, 22, 30, 24, 28][i] }));
+    function buildBg() {
+      const u = clamp(Math.min(W, H) / 800, 0.6, 1.2), lab = (g: CanvasRenderingContext2D, txt: string, x: number, y: number) => {
+        g.globalAlpha = 0.45; g.fillStyle = "#c9d1d9"; g.font = font(9); g.textAlign = "center"; g.fillText(txt, x, y);
+      };
+      // los adornos se pintan como hologramas lejanos (monocromo, tenue y con rayas) para no confundirse con enemigos
+      const sp = (w: number, h: number, paint: (g: CanvasRenderingContext2D, w: number, h: number) => void) => ({
+        cv: bgLayer((g) => {
+          paint(g, w, h);
+          g.globalAlpha = 1; g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(70,96,128,0.82)"; g.fillRect(0, 0, w, h);
+          g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000";
+          for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
+          g.globalCompositeOperation = "source-over";
+        }, w, h), w, h });
+      sprites = [
+        // 0 · nebulosa cloud (naranja tipo consola de nube + violeta)
+        sp(260 * u, 150 * u, (g, w, h) => {
+          g.globalCompositeOperation = "lighter";
+          for (const [fx, fy, fr, col] of [[0.3, 0.6, 0.3, "255,153,0"], [0.52, 0.42, 0.36, "169,112,255"], [0.72, 0.6, 0.28, "255,153,0"], [0.5, 0.66, 0.3, "61,217,255"]] as [number, number, number, string][]) {
+            const r = fr * w, rg = g.createRadialGradient(fx * w, fy * h, 0, fx * w, fy * h, r);
+            rg.addColorStop(0, `rgba(${col},0.16)`); rg.addColorStop(1, `rgba(${col},0)`);
+            g.fillStyle = rg; g.fillRect(0, 0, w, h);
+          }
+          g.globalCompositeOperation = "source-over";
+          g.globalAlpha = 0.22; g.strokeStyle = "#ff9900"; g.lineWidth = 1.5; g.beginPath(); // silueta de nube en vector
+          g.arc(w * 0.36, h * 0.6, h * 0.16, Math.PI * 0.5, Math.PI * 1.5); g.arc(w * 0.5, h * 0.42, h * 0.22, Math.PI, 0); g.arc(w * 0.64, h * 0.6, h * 0.16, Math.PI * 1.5, Math.PI * 0.5); g.closePath(); g.stroke();
+          lab(g, "☁ cloud developer", w / 2, h * 0.92);
+        }),
+        // 1 · satélite-robot de Godot
+        sp(120 * u, 74 * u, (g, w, h) => {
+          const px = Math.max(2, Math.round(3 * u)), rows = [
+            "..b..bbbb..b..", ".bbb.bbbb.bbb.", ".bbbbbbbbbbbb.", "bbwwwbbbbwwwbb", "bbwkwbbbbwkwbb", "bbwwwbbbbwwwbb",
+            "bbbbbbwwbbbbbb", "bbbbbbbbbbbbbb", ".bwbwbbbbwbwb.", "..bbbbbbbbbb..",
+          ], gw = rows[0].length * px, gx = Math.round(w / 2 - gw / 2), gy = 6;
+          g.globalAlpha = 0.5; g.strokeStyle = C.cyan; g.lineWidth = 1; // paneles solares
+          for (const sx of [gx - 30 * u, gx + gw + 4]) {
+            g.strokeRect(sx, gy + px * 2, 26 * u, px * 6); g.beginPath();
+            for (let k = 1; k < 3; k++) { g.moveTo(sx + (26 * u * k) / 3, gy + px * 2); g.lineTo(sx + (26 * u * k) / 3, gy + px * 8); }
+            g.stroke();
+          }
+          g.globalAlpha = 0.65; pix(g, rows, gx, gy, px, { b: "#478cbf", w: "#e8f1f8", k: "#0b1530" });
+          lab(g, "godot · 2D", w / 2, h - 6);
+        }),
+        // 2 · planeta catastral: predios (polígonos) sobre la superficie
+        sp(130 * u, 130 * u, (g, w) => {
+          const m = w / 2, r = w * 0.32;
+          const rg = g.createRadialGradient(m - r * 0.35, m - r * 0.4, r * 0.1, m, m, r);
+          rg.addColorStop(0, "#1d4a3a"); rg.addColorStop(1, "#06140f");
+          g.globalAlpha = 0.85; g.fillStyle = rg; g.beginPath(); g.arc(m, m, r, 0, TAU); g.fill();
+          g.save(); g.clip(); g.globalAlpha = 0.45; g.strokeStyle = C.fg; g.lineWidth = 1; g.beginPath();
+          for (let k = 0; k < 9; k++) { const y = m - r + (k + hash(k)) * r * 0.24; g.moveTo(m - r, y); g.lineTo(m + r, y + (hash(k + 9) - 0.5) * r * 0.5); }
+          for (let k = 0; k < 9; k++) { const x = m - r + (k + hash(k + 20)) * r * 0.24; g.moveTo(x, m - r); g.lineTo(x + (hash(k + 30) - 0.5) * r * 0.6, m + r); }
+          g.stroke(); g.restore();
+          g.globalAlpha = 0.5; g.strokeStyle = C.warn; g.beginPath(); g.ellipse(m, m, r * 1.45, r * 0.32, -0.3, 0, TAU); g.stroke();
+          lab(g, "IGAC · XTF · LADM-COL", m, w - 6);
+        }),
+        // 3 · accesibilidad (MinTIC)
+        sp(100 * u, 80 * u, (g, w, h) => {
+          const m = w / 2, cy0 = h * 0.4, r = h * 0.28;
+          g.globalAlpha = 0.6; g.strokeStyle = C.cyan; g.lineWidth = 2;
+          g.beginPath(); g.arc(m, cy0, r, 0, TAU); g.stroke();
+          g.fillStyle = C.cyan; g.beginPath(); g.arc(m, cy0 - r * 0.55, r * 0.14, 0, TAU); g.fill();
+          g.lineWidth = 2.2; g.beginPath();
+          g.moveTo(m - r * 0.6, cy0 - r * 0.28); g.lineTo(m + r * 0.6, cy0 - r * 0.28);
+          g.moveTo(m, cy0 - r * 0.3); g.lineTo(m, cy0 + r * 0.15);
+          g.moveTo(m - r * 0.35, cy0 + r * 0.65); g.lineTo(m, cy0 + r * 0.15); g.lineTo(m + r * 0.35, cy0 + r * 0.65); g.stroke();
+          lab(g, "a11y · MinTIC", m, h - 6);
+        }),
+        // 4 · constelación gitflow (la prueba técnica ptbdb)
+        sp(150 * u, 90 * u, (g, w, h) => {
+          const x0 = 12, dx = (w - 24) / 6, rowsY = [h * 0.18, h * 0.42, h * 0.64];
+          const nodes: [number, number][] = [[0, 0], [3, 0], [6, 0], [1, 1], [2, 1], [4, 1], [5, 1], [2, 2], [3, 2], [4, 2]];
+          g.globalAlpha = 0.35; g.lineWidth = 1;
+          for (const [row, col] of [[0, "#7ee787"], [1, C.cyan], [2, C.violet]] as [number, string][]) {
+            const ns = nodes.filter((n) => n[1] === row).map((n) => [x0 + n[0] * dx, rowsY[row]]);
+            g.strokeStyle = col; g.beginPath(); ns.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke();
+          }
+          g.beginPath(); // ramas y merges
+          for (const [a, b, ra, rb] of [[0, 1, 0, 1], [5, 6, 1, 0], [1, 2, 1, 2], [4, 5, 2, 1], [6, 6, 1, 0]] as number[][]) {
+            g.moveTo(x0 + a * dx, rowsY[ra]); g.lineTo(x0 + b * dx, rowsY[rb]);
+          }
+          g.strokeStyle = "#9aa4b1"; g.stroke();
+          g.globalAlpha = 0.85; g.fillStyle = "#e6edf3";
+          for (const [c, r] of nodes) g.fillRect(x0 + c * dx - 1.5, rowsY[r] - 1.5, 3, 3);
+          lab(g, "ptbdb · gitflow ✓", w / 2, h - 6);
+        }),
+        // 5 · estación sísmica (antena parabólica)
+        sp(90 * u, 70 * u, (g, w, h) => {
+          const m = w / 2, y = h * 0.5;
+          g.globalAlpha = 0.55; g.strokeStyle = C.warn; g.lineWidth = 1.5;
+          g.beginPath(); g.ellipse(m, y - 8 * u, 16 * u, 7 * u, -0.5, 0, Math.PI); g.stroke();
+          g.beginPath(); g.moveTo(m, y - 6 * u); g.lineTo(m, y + 10 * u); g.moveTo(m - 9 * u, y + 10 * u); g.lineTo(m + 9 * u, y + 10 * u); g.stroke();
+          g.beginPath(); g.moveTo(m - 2 * u, y - 10 * u); g.lineTo(m + 6 * u, y - 22 * u); g.stroke();
+          lab(g, t("sismo · IA", "quake · AI"), m, h - 4);
+        }),
+      ];
+      // skyline de Bogotá: Monserrate (con su iglesia) detrás y torres delante
+      skyH = clamp(H * 0.24, 110, 210);
+      skyL = bgLayer((g) => {
+        const h = skyH, base = h;
+        g.fillStyle = "#0a1220"; g.beginPath(); g.moveTo(0, base);
+        for (let i = 0; i <= 40; i++) { const f = i / 40, x = f * W; const y = h * (0.62 - 0.4 * Math.exp(-(((f - 0.68) / 0.13) ** 2)) - 0.12 * Math.exp(-(((f - 0.25) / 0.2) ** 2)) + 0.03 * Math.sin(i * 1.7)); g.lineTo(x, y); }
+        g.lineTo(W, base); g.closePath(); g.fill();
+        g.globalAlpha = 0.4; g.strokeStyle = C.dim; g.lineWidth = 1; g.stroke(); g.globalAlpha = 1;
+        const px = W * 0.68, py = h * 0.22 - 0.03 * h * Math.sin(27 * 1.7); // iglesia en la cima
+        g.fillStyle = "#1a2638"; g.fillRect(px - 6, py - 7, 12, 7); g.fillRect(px - 1, py - 13, 2, 6); g.fillRect(px - 3, py - 11, 6, 1.5);
+        // torres
+        const towers: [number, number, number][] = [];
+        for (let x = 0; x < W; ) { const bw = 14 + hash(x) * 26, bh = h * (0.18 + hash(x + 5) * 0.28); towers.push([x, bw, bh]); x += bw + 2; }
+        const colp = W * 0.36, bac = W * 0.52;
+        towers.push([colp - 13, 26, h * 0.86], [bac - 22, 18, h * 0.8], [bac + 2, 18, h * 0.72]);
+        for (const [x, bw, bh] of towers) {
+          g.fillStyle = "#04070d"; g.fillRect(x, base - bh, bw, bh);
+          g.strokeStyle = "rgba(255,255,255,0.06)"; g.strokeRect(x + 0.5, base - bh + 0.5, bw - 1, bh);
+          for (let wy = base - bh + 6; wy < base - 4; wy += 7) for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+            if (hash(wx * 3.1 + wy * 7.7) > 0.78) { g.fillStyle = hash(wx + wy) > 0.5 ? "rgba(255,204,51,0.55)" : "rgba(170,255,187,0.35)"; g.fillRect(wx, wy, 2, 3); }
+          }
+        }
+        // corona escalonada de la Colpatria y techos inclinados del BD Bacatá
+        g.fillStyle = "#04070d";
+        g.fillRect(colp - 9, base - h * 0.86 - 8, 18, 8); g.fillRect(colp - 5, base - h * 0.86 - 14, 10, 6); g.fillRect(colp - 1, base - h * 0.86 - 26, 2, 12);
+        g.beginPath(); g.moveTo(bac - 22, base - h * 0.8); g.lineTo(bac - 4, base - h * 0.8 - 12); g.lineTo(bac - 4, base - h * 0.8); g.fill();
+        g.beginPath(); g.moveTo(bac + 2, base - h * 0.72 - 10); g.lineTo(bac + 20, base - h * 0.72); g.lineTo(bac + 2, base - h * 0.72); g.fill();
+        beacon = { x: colp, y: base - h * 0.86 - 26 };
+        g.globalAlpha = 0.45; g.fillStyle = C.br; g.font = font(10); g.textAlign = "left";
+        g.fillText("BOGOTÁ · 2024", 22, h * 0.42);
+      }, W, skyH);
+      // marco del editor de Godot: reglas, ejes del origen y el rectángulo del viewport
+      frameL = bgLayer((g) => {
+        const top = 40, rw = 14;
+        g.fillStyle = "rgba(33,38,46,0.55)"; g.fillRect(0, top, W, rw); g.fillRect(0, top, rw, H - top);
+        g.strokeStyle = "#8b949e"; g.lineWidth = 1; g.globalAlpha = 0.5; g.beginPath();
+        for (let x = rw; x < W; x += 10) { const L = (x - rw) % 100 === 0 ? rw : (x - rw) % 50 === 0 ? 7 : 3; g.moveTo(x + 0.5, top + rw); g.lineTo(x + 0.5, top + rw - L); }
+        for (let y = top + rw; y < H; y += 10) { const L = (y - top - rw) % 100 === 0 ? rw : (y - top - rw) % 50 === 0 ? 7 : 3; g.moveTo(rw, y + 0.5); g.lineTo(rw - L, y + 0.5); }
+        g.stroke();
+        g.fillStyle = "#8b949e"; g.font = font(8); g.textAlign = "left";
+        for (let x = rw + 100; x < W - 30; x += 100) g.fillText(String(x - rw), x + 2, top + 8);
+        g.globalAlpha = 0.45; g.lineWidth = 1.5; // ejes X (rojo) e Y (verde) del origen
+        g.strokeStyle = "#ff5b5b"; g.beginPath(); g.moveTo(rw, top + rw + 1); g.lineTo(W, top + rw + 1); g.stroke();
+        g.strokeStyle = "#7ee787"; g.beginPath(); g.moveTo(rw + 1, top + rw); g.lineTo(rw + 1, H); g.stroke();
+        g.globalAlpha = 0.22; g.strokeStyle = "#a970ff"; g.lineWidth = 1; g.strokeRect(rw + 8, top + rw + 8, W - rw - 16, H - top - rw - 16);
+        g.globalAlpha = 0.4; g.fillStyle = "#c9d1d9"; g.font = font(10); g.textAlign = "right";
+        g.fillText("res://multimedia.gd", W - 22, H - 40);
+        g.globalAlpha = 1; vignette(g, 0.45);
+      });
+      rageL = bgLayer((g) => vignette(g, 0.5, "255,40,40"));
+    }
+    buildBg();
+
     return {
+      resize: buildBg,
       objective: () => boss.on
         ? t(`🎯 Derriba al MONOLITO LEGACY · ${Math.ceil((boss.hp / boss.max) * 100)}%`, `🎯 Take down the LEGACY MONOLITH · ${Math.ceil((boss.hp / boss.max) * 100)}%`)
         : t(`🎯 Sobrevive · oleada ${Math.max(1, wave)}/3`, `🎯 Survive · wave ${Math.max(1, wave)}/3`),
       update(dt) {
         // estrellas en paralaje
         for (const s of stars) { s.y += s.z * dt * (boss.on ? 0.35 : 0.22); if (s.y > 1) { s.y -= 1; s.x = Math.random(); } }
+        // objetos del fondo (solo visual): bajan más lento que las estrellas y se reciclan arriba
+        bgT += dt;
+        for (const d of decos) {
+          const sh = sprites[d.i]?.h ?? 100;
+          d.y += (d.sp * (boss.on ? 1.6 : 1) * dt) / H;
+          if (d.y * H > H + 10) { d.y = -sh / H - rand(0.15, 0.6); d.x = rand(0.12, 0.88); }
+        }
         // nave: sigue al puntero (con algo de inercia) o al teclado
         if (ptr.moved || (coarse && ptr.down)) {
           const tx = ptr.x, ty = ptr.y - (coarse ? 70 : 0);
@@ -583,16 +1081,16 @@ export function startArcade(o: ArcadeOpts): void {
           boss.x = W / 2 + Math.sin(boss.t * (rage ? 0.9 : 0.6)) * W * 0.3;
           boss.cool -= dt; boss.ring -= dt;
           if (boss.cool <= 0) {
-            boss.cool = rage ? 0.75 : 1.05;
+            boss.cool = rage ? 0.95 : 1.3;
             const a = Math.atan2(ship.y - boss.y, ship.x - boss.x);
-            for (const d of [-0.25, 0, 0.25]) fireAt(boss.x, boss.y + 30, a + d, rage ? 300 : 250);
+            for (const d of [-0.25, 0, 0.25]) fireAt(boss.x, boss.y + 30, a + d, rage ? 260 : 220);
           }
           if (boss.ring <= 0) {
-            boss.ring = rage ? 1.6 : 2.4;
-            const n = rage ? 16 : 12, off = boss.t;
-            for (let i = 0; i < n; i++) fireAt(boss.x, boss.y, off + (i / n) * TAU, 170);
+            boss.ring = rage ? 2 : 3;
+            const n = rage ? 13 : 10, off = boss.t;
+            for (let i = 0; i < n; i++) fireAt(boss.x, boss.y, off + (i / n) * TAU, 150);
           }
-          if (rage && Math.floor(boss.t * 12) % 2 === 0) fireAt(boss.x, boss.y, boss.t * 4, 190);
+          if (rage && Math.floor(boss.t * 12) % 3 === 0) fireAt(boss.x, boss.y, boss.t * 4, 170);
         }
 
         for (const b of shots) { b.x += b.vx * dt; b.y += b.vy * dt; }
@@ -637,6 +1135,30 @@ export function startArcade(o: ArcadeOpts): void {
           ctx.fillRect(s.x * W, s.y * H, s.z * 2, s.z * (boss.on ? 6 : 3));
         }
         ctx.globalAlpha = 1;
+        // fondo de época: objetos lejanos, skyline al despegar, sismógrafo, marco del editor
+        for (const d of decos) {
+          const sp = sprites[d.i]; if (!sp) continue;
+          const y = d.y * H; if (y > H || y + sp.h < 0) continue;
+          ctx.globalAlpha = 0.55; ctx.drawImage(sp.cv, d.x * W - sp.w / 2, y, sp.w, sp.h); ctx.globalAlpha = 1;
+        }
+        const skyY = H - skyH + bgT * 7;
+        if (skyL && skyY < H) {
+          ctx.drawImage(skyL, 0, skyY, W, skyH);
+          if (reduce || Math.floor(elapsed * 1.5) % 2 === 0) { ctx.fillStyle = C.err; ctx.fillRect(beacon.x - 1.5, skyY + beacon.y - 3, 3, 3); }
+        }
+        {
+          // sismógrafo en el borde derecho: ruido de fondo y un evento que baja con el papel
+          const sx = W - 30, y0 = 84, y1 = H - 60, ev = reduce ? (y1 - y0) * 0.5 : ((elapsed * 60) % ((y1 - y0) * 1.6)) - (y1 - y0) * 0.3;
+          ctx.globalAlpha = 0.4; ctx.strokeStyle = C.warn; ctx.lineWidth = 1; ctx.beginPath();
+          for (let y = y0; y <= y1; y += 4) {
+            const q = y - y0, n = (hash(Math.floor(q / 4) + Math.floor(reduce ? 0 : elapsed * 15)) - 0.5) * 3;
+            const e = Math.exp(-(((q - ev) / 26) ** 2)) * 11 * Math.sin(q * 0.9);
+            if (y === y0) ctx.moveTo(sx + n + e, y); else ctx.lineTo(sx + n + e, y);
+          }
+          ctx.stroke(); ctx.globalAlpha = 1;
+        }
+        if (frameL) ctx.drawImage(frameL, 0, 0, W, H);
+        if (rageL && boss.on) { ctx.globalAlpha = clamp((boss.y + 140) / 270, 0, 1) * (boss.hp < boss.max / 2 ? 1 : 0.6); ctx.drawImage(rageL, 0, 0, W, H); ctx.globalAlpha = 1; }
         // power-ups
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         for (const p of powers) {
@@ -718,321 +1240,6 @@ export function startArcade(o: ArcadeOpts): void {
     };
   }
 
-  // ═════════════════════════════════════════════════════════════════════════════
-  // 4 · SHOOTER EN PRIMERA PERSONA (raycaster a lo Wolfenstein)
-  // ═════════════════════════════════════════════════════════════════════════════
-  function fps(): Scene {
-    // # muro · 2 muro de servidores · 3 muro "vidrio" · e bug · B jefe · P jugador
-    const MAP = [
-      "################",
-      "#P..#.....3....#",
-      "#...#..e..3..e.#",
-      "#.###.........##",
-      "#.....##2##....#",
-      "##.e..#...#..e.#",
-      "#.....#.e.#....#",
-      "#..2..##.##.2..#",
-      "#..............#",
-      "#.e.##3..3##.e.#", // puerta a la sala del jefe
-      "#...#..B...#...#",
-      "#...#......#...#",
-      "################",
-    ];
-    const grid = MAP.map((r) => r.split(""));
-    const MH = grid.length, MW = grid[0].length;
-    const solid = (x: number, y: number) => { const c = grid[Math.floor(y)]?.[Math.floor(x)]; return c === undefined || c === "#" || c === "2" || c === "3"; };
-
-    type Mob = { x: number; y: number; hp: number; max: number; cool: number; boss: boolean; flash: number; t: number; dead: number; seen: boolean };
-    type Orb = { x: number; y: number; vx: number; vy: number; big: boolean };
-    const pl = { x: 1.5, y: 1.5, a: 0, cool: 0, kick: 0, bob: 0, muzzle: 0 };
-    const mobs: Mob[] = [], orbs: Orb[] = [];
-    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-      const c = grid[y][x];
-      if (c === "P") { pl.x = x + 0.5; pl.y = y + 0.5; grid[y][x] = "."; }
-      if (c === "e" || c === "B") {
-        const boss = c === "B";
-        mobs.push({ x: x + 0.5, y: y + 0.5, hp: boss ? 16 : 3, max: boss ? 16 : 3, cool: rand(1, 2.5), boss, flash: 0, t: rand(0, 10), dead: 0, seen: false });
-        grid[y][x] = ".";
-      }
-    }
-    const total = mobs.length;
-    let won = 0;
-    const FOV = 0.66;
-    let zbuf = new Float32Array(1);
-    let colW = 2;
-
-    // sprites pre-renderizados (se cortan por columnas según el z-buffer)
-    const sprite = (draw: (g: CanvasRenderingContext2D) => void) => {
-      const c = document.createElement("canvas"); c.width = c.height = 64;
-      draw(c.getContext("2d")!); return c;
-    };
-    const drawBug = (g: CanvasRenderingContext2D, body: string, eye: string) => {
-      g.shadowColor = body; g.shadowBlur = 8;
-      g.strokeStyle = body; g.lineWidth = 3;
-      g.beginPath();
-      for (const k of [-1, 1]) for (const l of [30, 38, 46]) { g.moveTo(32 + k * 12, l); g.lineTo(32 + k * 26, l + 8); }
-      g.moveTo(26, 16); g.lineTo(20, 6); g.moveTo(38, 16); g.lineTo(44, 6);
-      g.stroke();
-      g.fillStyle = body; g.beginPath(); g.ellipse(32, 38, 15, 20, 0, 0, TAU); g.fill();
-      g.beginPath(); g.arc(32, 20, 10, 0, TAU); g.fill();
-      g.shadowBlur = 0; g.fillStyle = eye;
-      g.fillRect(26, 17, 4, 5); g.fillRect(34, 17, 4, 5);
-      g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(31, 26, 2, 30);
-    };
-    const SPR = {
-      bug: sprite((g) => drawBug(g, C.pink, "#000")),
-      hit: sprite((g) => drawBug(g, "#ffffff", C.pink)),
-      boss: sprite((g) => drawBug(g, C.err, C.warn)),
-      orb: sprite((g) => {
-        const r = g.createRadialGradient(32, 32, 2, 32, 32, 22);
-        r.addColorStop(0, "#fff"); r.addColorStop(0.4, "#ff9ccc"); r.addColorStop(1, "rgba(255,61,154,0)");
-        g.fillStyle = r; g.fillRect(0, 0, 64, 64);
-      }),
-    };
-
-    const fit = () => { colW = Math.max(hq ? 2 : 3, Math.ceil(W / (hq ? 420 : 300))); zbuf = new Float32Array(Math.ceil(W / colW) + 1); };
-    fit();
-
-    function los(ax: number, ay: number, bx: number, by: number) {
-      const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d * 6);
-      for (let i = 1; i < n; i++) if (solid(ax + ((bx - ax) * i) / n, ay + ((by - ay) * i) / n)) return false;
-      return true;
-    }
-    function move(o2: { x: number; y: number }, dx: number, dy: number, r = 0.22) {
-      if (!solid(o2.x + dx + Math.sign(dx) * r, o2.y)) o2.x += dx;
-      if (!solid(o2.x, o2.y + dy + Math.sign(dy) * r)) o2.y += dy;
-    }
-    /** Proyección de un punto del mundo a pantalla: { sx, depth } o null si está detrás. */
-    function project(x: number, y: number) {
-      const dirX = Math.cos(pl.a), dirY = Math.sin(pl.a);
-      const plX = -dirY * FOV, plY = dirX * FOV;
-      const rx = x - pl.x, ry = y - pl.y;
-      const inv = 1 / (plX * dirY - dirX * plY);
-      const tx = inv * (dirY * rx - dirX * ry), ty = inv * (-plY * rx + plX * ry);
-      if (ty <= 0.1) return null;
-      return { sx: (W / 2) * (1 + tx / ty), depth: ty };
-    }
-    function shoot() {
-      if (pl.cool > 0 || won) return;
-      pl.cool = 0.28; pl.kick = 1; pl.muzzle = 0.06; sfx.shoot(); o.beep(180, 30, 0.04);
-      // hitscan: el bug más cercano que cubra el centro de la mira y no esté detrás de un muro
-      let best: Mob | null = null, bestD = Infinity;
-      const zc = zbuf[Math.floor(W / 2 / colW)] ?? Infinity;
-      for (const m of mobs) {
-        if (m.hp <= 0) continue;
-        const p = project(m.x, m.y);
-        if (!p || p.depth > zc) continue;
-        const half = (H / p.depth) * (m.boss ? 0.42 : 0.3);
-        if (Math.abs(p.sx - W / 2) < half && p.depth < bestD) { best = m; bestD = p.depth; }
-      }
-      if (best) {
-        best.hp--; best.flash = 0.12; best.seen = true;
-        if (best.hp <= 0) {
-          best.dead = 0.5; addScore(best.boss ? 4000 : 400); sfx.boom(); shakeIt(8);
-          if (mobs.every((m) => m.hp <= 0)) { won = 2.2; flash = 0.5; }
-        } else { o.beep(700, 10, 0.03); addScore(20); }
-      }
-    }
-
-    const onLockClick = () => { if (!coarse && document.pointerLockElement !== cvs) cvs.requestPointerLock?.(); };
-
-    return {
-      resize: fit,
-      objective: () => {
-        const left = mobs.filter((m) => m.hp > 0).length;
-        return t(`🎯 Bugs eliminados ${total - left}/${total}`, `🎯 Bugs wiped ${total - left}/${total}`);
-      },
-      down(x, _y, touch) {
-        if (!touch) { onLockClick(); shoot(); }
-        else if (x > W / 2) shoot();
-      },
-      dispose() { if (document.pointerLockElement === cvs) document.exitPointerLock?.(); },
-      update(dt) {
-        pl.cool = Math.max(0, pl.cool - dt); pl.kick = Math.max(0, pl.kick - dt * 5); pl.muzzle = Math.max(0, pl.muzzle - dt);
-        // giro: ratón (con pointer lock o arrastrando), flechas, o mitad derecha en táctil
-        pl.a += ptr.lookDX * 0.0028; ptr.lookDX = 0;
-        if (key("arrowleft")) pl.a -= 2.6 * dt;
-        if (key("arrowright")) pl.a += 2.6 * dt;
-        let fw = 0, st = 0;
-        if (key("w", "arrowup")) fw += 1;
-        if (key("s", "arrowdown")) fw -= 1;
-        if (key("a")) st -= 1;
-        if (key("d")) st += 1;
-        if (key(" ")) shoot();
-        for (const tch of touches.values()) {
-          if (tch.sx < W / 2) { fw += clamp(-(tch.y - tch.sy) / 60, -1, 1); st += clamp((tch.x - tch.sx) / 60, -1, 1); }
-        }
-        const dX = Math.cos(pl.a), dY = Math.sin(pl.a), spd = 2.8 * dt;
-        const mx = (dX * fw - dY * st) * spd, my = (dY * fw + dX * st) * spd;
-        if (mx || my) pl.bob += dt * 10;
-        move(pl, mx, my);
-
-        for (const m of mobs) {
-          m.t += dt; m.flash = Math.max(0, m.flash - dt);
-          if (m.hp <= 0) { m.dead = Math.max(0, m.dead - dt); continue; }
-          const d = Math.hypot(pl.x - m.x, pl.y - m.y);
-          const sees = d < 9 && los(m.x, m.y, pl.x, pl.y);
-          if (sees) m.seen = true;
-          if (m.seen && d > 1.3) move(m, ((pl.x - m.x) / d) * dt * (m.boss ? 0.9 : 1.25), ((pl.y - m.y) / d) * dt * (m.boss ? 0.9 : 1.25), 0.3);
-          if (d < 0.7) hurt();
-          m.cool -= dt;
-          if (sees && m.cool <= 0) {
-            m.cool = m.boss ? 1.1 : rand(1.6, 2.6);
-            const a = Math.atan2(pl.y - m.y, pl.x - m.x);
-            for (const off of m.boss ? [-0.22, 0, 0.22] : [0]) orbs.push({ x: m.x, y: m.y, vx: Math.cos(a + off) * 3.6, vy: Math.sin(a + off) * 3.6, big: m.boss });
-            o.beep(m.boss ? 140 : 240, 30, 0.02);
-          }
-        }
-        for (const b of orbs) {
-          b.x += b.vx * dt; b.y += b.vy * dt;
-          if (solid(b.x, b.y)) b.vx = NaN;
-          else if (Math.hypot(b.x - pl.x, b.y - pl.y) < 0.3) { b.vx = NaN; hurt(); }
-        }
-        filter(orbs, (b) => !Number.isNaN(b.vx));
-        if (won > 0) { won -= dt; if (won <= 0) clearStage(); }
-      },
-      draw() {
-        const dirX = Math.cos(pl.a), dirY = Math.sin(pl.a);
-        const plX = -dirY * FOV, plY = dirX * FOV;
-        const horizon = H / 2 + Math.sin(pl.bob) * 4;
-        // cielo raso y piso con degradado + líneas de rejilla
-        const g1 = ctx.createLinearGradient(0, 0, 0, horizon);
-        g1.addColorStop(0, "#02030a"); g1.addColorStop(1, "#0b1020");
-        ctx.fillStyle = g1; ctx.fillRect(0, 0, W, horizon);
-        const g2 = ctx.createLinearGradient(0, horizon, 0, H);
-        g2.addColorStop(0, "#050805"); g2.addColorStop(1, "#0f1a12");
-        ctx.fillStyle = g2; ctx.fillRect(0, horizon, W, H - horizon);
-        ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1;
-        for (let i = 1; i < 14; i++) { const y = horizon + (H - horizon) * Math.pow(i / 14, 2.2); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-
-        // muros: DDA por columna
-        const cols = Math.ceil(W / colW);
-        for (let i = 0; i < cols; i++) {
-          const camX = (2 * i * colW) / W - 1;
-          const rdx = dirX + plX * camX, rdy = dirY + plY * camX;
-          let mx = Math.floor(pl.x), my = Math.floor(pl.y);
-          const ddx = Math.abs(1 / rdx), ddy = Math.abs(1 / rdy);
-          const sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
-          let sdx = rdx < 0 ? (pl.x - mx) * ddx : (mx + 1 - pl.x) * ddx;
-          let sdy = rdy < 0 ? (pl.y - my) * ddy : (my + 1 - pl.y) * ddy;
-          let side = 0, cell = "#";
-          for (let k = 0; k < 64; k++) {
-            if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; } else { sdy += ddy; my += sy; side = 1; }
-            const c = grid[my]?.[mx];
-            if (c === undefined || c === "#" || c === "2" || c === "3") { cell = c ?? "#"; break; }
-          }
-          const dist = Math.max(0.05, side === 0 ? sdx - ddx : sdy - ddy);
-          zbuf[i] = dist;
-          const h = H / dist;
-          let wx = side === 0 ? pl.y + dist * rdy : pl.x + dist * rdx; wx -= Math.floor(wx);
-          const shade = clamp(1.3 / (1 + dist * 0.3), 0.1, 1) * (side ? 0.7 : 1);
-          const base = cell === "2" ? C.warn : cell === "3" ? C.cyan : C.fg;
-          const x = i * colW, top = horizon - h / 2, cw = colW + 0.5;
-          // estética "neón": muro oscuro teñido + bordes y juntas brillantes
-          ctx.globalAlpha = 1; ctx.fillStyle = "#020403"; ctx.fillRect(x, top, cw, h);
-          ctx.fillStyle = base;
-          ctx.globalAlpha = (cell === "3" ? 0.1 : 0.2) * shade; ctx.fillRect(x, top, cw, h);
-          ctx.globalAlpha = shade;
-          const edge = Math.max(1, h * 0.012);
-          ctx.fillRect(x, top, cw, edge); ctx.fillRect(x, top + h - edge, cw, edge);
-          if (wx < 0.015 || wx > 0.985) ctx.fillRect(x, top, cw, h);
-          if (cell === "#") { ctx.globalAlpha = 0.35 * shade; ctx.fillRect(x, top + h * 0.5, cw, Math.max(1, h * 0.006)); }
-          if (cell === "2") {
-            // rack de servidores con leds parpadeando
-            ctx.globalAlpha = 0.45 * shade;
-            for (let r = 1; r < 7; r++) ctx.fillRect(x, top + h * (r / 7), cw, Math.max(1, h * 0.008));
-            if (wx > 0.15 && wx < 0.22) {
-              for (let r = 0; r < 6; r++) {
-                ctx.fillStyle = (Math.floor(performance.now() / 260 + mx * 7 + my * 3 + r * 5) % 4) ? C.acc : C.err;
-                ctx.globalAlpha = shade; ctx.fillRect(x, top + h * (r / 7 + 0.07), cw, h * 0.03);
-              }
-            }
-          }
-          if (cell === "3" && Math.abs(wx - 0.3) < 0.04) { ctx.globalAlpha = 0.35 * shade; ctx.fillStyle = "#fff"; ctx.fillRect(x, top, cw, h); }
-        }
-        ctx.globalAlpha = 1;
-
-        // sprites (bugs y proyectiles), de lejos a cerca, recortados con el z-buffer
-        type Sp = { x: number; y: number; img: HTMLCanvasElement; scale: number; lift: number; alpha: number };
-        const sps: Sp[] = [];
-        for (const m of mobs) {
-          if (m.hp <= 0 && m.dead <= 0) continue;
-          const img = m.boss ? SPR.boss : m.flash > 0 ? SPR.hit : SPR.bug;
-          sps.push({ x: m.x, y: m.y, img, scale: m.boss ? 1.25 : 0.8, lift: Math.sin(m.t * 6) * 0.03, alpha: m.hp > 0 ? 1 : m.dead / 0.5 });
-        }
-        for (const b of orbs) sps.push({ x: b.x, y: b.y, img: SPR.orb, scale: b.big ? 0.45 : 0.32, lift: 0.05, alpha: 1 });
-        sps.sort((a, b) => Math.hypot(b.x - pl.x, b.y - pl.y) - Math.hypot(a.x - pl.x, a.y - pl.y));
-        for (const s of sps) {
-          const p = project(s.x, s.y);
-          if (!p) continue;
-          const size = (H / p.depth) * s.scale;
-          const top = horizon + (H / p.depth) * (0.5 - s.lift) - size;
-          const left = p.sx - size / 2;
-          ctx.globalAlpha = s.alpha;
-          for (let c0 = Math.max(0, Math.floor(left / colW)); c0 * colW < left + size && c0 < zbuf.length; c0++) {
-            if (zbuf[c0] < p.depth) continue;
-            const x0 = c0 * colW, u = ((x0 - left) / size) * 64;
-            ctx.drawImage(s.img, clamp(u, 0, 63), 0, Math.max(1, (colW / size) * 64), 64, x0, top, colW + 0.5, size);
-          }
-          ctx.globalAlpha = 1;
-          const m = mobs.find((mm) => mm.x === s.x && mm.y === s.y && mm.boss && mm.hp > 0);
-          if (m && (zbuf[clamp(Math.floor(p.sx / colW), 0, zbuf.length - 1)] ?? 0) >= p.depth) hpBar(p.sx - size / 3, top - 10, (size * 2) / 3, m.hp / m.max, C.err);
-        }
-
-        // arma: un "blaster" de terminal con balanceo y retroceso
-        const gx = W / 2 + Math.sin(pl.bob * 0.5) * 10, gy = H - 20 + Math.abs(Math.cos(pl.bob * 0.5)) * 8 + pl.kick * 26;
-        const gs = clamp(H / 560, 0.7, 1.5);
-        if (pl.muzzle > 0) {
-          const r = ctx.createRadialGradient(gx, gy - 150 * gs, 0, gx, gy - 150 * gs, 60 * gs);
-          r.addColorStop(0, "#fff"); r.addColorStop(0.3, C.warn); r.addColorStop(1, "rgba(255,200,0,0)");
-          ctx.fillStyle = r; ctx.beginPath(); ctx.arc(gx, gy - 150 * gs, 60 * gs, 0, TAU); ctx.fill();
-        }
-        ctx.fillStyle = "#111a14"; ctx.strokeStyle = C.fg; ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(gx - 60 * gs, gy); ctx.lineTo(gx - 26 * gs, gy - 130 * gs); ctx.lineTo(gx + 26 * gs, gy - 130 * gs); ctx.lineTo(gx + 60 * gs, gy); ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        ctx.fillStyle = C.acc; ctx.font = font(14 * gs, true); ctx.textAlign = "center";
-        ctx.fillText(">_", gx, gy - 70 * gs);
-        glow(C.acc, 14); ctx.fillStyle = C.br; ctx.fillRect(gx - 14 * gs, gy - 140 * gs, 28 * gs, 10 * gs); glow(null);
-
-        // mira
-        ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(W / 2 - 12, H / 2); ctx.lineTo(W / 2 - 4, H / 2); ctx.moveTo(W / 2 + 4, H / 2); ctx.lineTo(W / 2 + 12, H / 2);
-        ctx.moveTo(W / 2, H / 2 - 12); ctx.lineTo(W / 2, H / 2 - 4); ctx.moveTo(W / 2, H / 2 + 4); ctx.lineTo(W / 2, H / 2 + 12);
-        ctx.stroke();
-
-        // minimapa
-        const ms = clamp(Math.min(W, H) / 110, 4, 8), ox = W - MW * ms - 16, oy = W < 640 ? 84 : 56;
-        ctx.globalAlpha = 0.85; ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(ox - 4, oy - 4, MW * ms + 8, MH * ms + 8);
-        for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-          const c = grid[y][x];
-          if (c !== ".") { ctx.fillStyle = c === "2" ? C.warn : c === "3" ? C.cyan : C.dim; ctx.fillRect(ox + x * ms, oy + y * ms, ms, ms); }
-        }
-        const reveal = mobs.filter((mm) => mm.hp > 0).length <= 2; // los últimos se marcan siempre
-        for (const m of mobs) if (m.hp > 0 && (m.seen || reveal)) { ctx.fillStyle = m.boss ? C.err : C.pink; ctx.fillRect(ox + m.x * ms - 2, oy + m.y * ms - 2, 4, 4); }
-        ctx.fillStyle = C.br; ctx.beginPath(); ctx.arc(ox + pl.x * ms, oy + pl.y * ms, 2.5, 0, TAU); ctx.fill();
-        ctx.strokeStyle = C.br; ctx.beginPath(); ctx.moveTo(ox + pl.x * ms, oy + pl.y * ms); ctx.lineTo(ox + (pl.x + dirX * 1.4) * ms, oy + (pl.y + dirY * 1.4) * ms); ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        if (won > 0) {
-          ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, H / 2 - 50, W, 100);
-          ctx.textAlign = "center"; ctx.fillStyle = C.acc; ctx.font = font(22, true);
-          ctx.fillText("git commit -m \"fix: everything\" ✔", W / 2, H / 2 + 8);
-        }
-
-        // controles táctiles: guía del joystick
-        if (coarse) {
-          for (const tch of touches.values()) if (tch.sx < W / 2) {
-            ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(tch.sx, tch.sy, 50, 0, TAU); ctx.stroke();
-            ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.beginPath(); ctx.arc(tch.x, tch.y, 20, 0, TAU); ctx.fill();
-          }
-        }
-      },
-    };
-  }
-
   // ── utilidades de dibujo ────────────────────────────────────────────────────
   function glow(color: string | null, blur = 12) {
     if (!color || !hq) { ctx.shadowBlur = 0; return; }
@@ -1053,7 +1260,7 @@ export function startArcade(o: ArcadeOpts): void {
     ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, 0, W, 40);
     ctx.textBaseline = "middle"; ctx.font = font(13, true);
     ctx.textAlign = "left"; ctx.fillStyle = C.acc;
-    ctx.fillText(W < 520 ? `[${stage + 1}/${STAGE_COUNT}]` : `[${stage + 1}/${STAGE_COUNT}] ${S.file}`, 16, 20);
+    ctx.fillText(W < 520 ? `${S.year}` : `${S.year} · ${S.file}`, 16, 20);
     ctx.textAlign = "center"; ctx.fillStyle = C.br;
     ctx.fillText(`SCORE ${String(score).padStart(6, "0")}`, W / 2, 20);
     ctx.textAlign = "right";
@@ -1104,10 +1311,15 @@ export function startArcade(o: ArcadeOpts): void {
 
   // ── transición "glitch": el proceso actual crashea y muta en el siguiente ────
   const CRASH = [
-    t("pong.sh: Segmentation fault (core dumped)", "pong.sh: Segmentation fault (core dumped)"),
-    t("pong3d.bin: kernel: out of memory — matando proceso", "pong3d.bin: kernel: out of memory — killing process"),
-    t("naves.exe: stack smashing detected ***", "naves.exe: stack smashing detected ***"),
+    "pong.sh: Segmentation fault (core dumped)",
+    "snake.py: RecursionError: maximum recursion depth exceeded",
+    "fisica3d.m: Out of memory. Type \"help memory\" for your options.",
+    "catastro.exe: ORA-00060: deadlock detected while waiting for resource",
+    "bd-2.sql: FATAL: too many connections for role \"juferoga\"",
+    "multimedia.gd: stack smashing detected ***",
+    "second-brain.md: kernel: Out of memory: Killed process (brain)",
   ];
+
   function drawTransition(dt: number) {
     transT += dt;
     const D = reduce ? 1.6 : 2.4;
@@ -1139,11 +1351,11 @@ export function startArcade(o: ArcadeOpts): void {
     ctx.fillText(CRASH[stage] ?? "", W / 2, H / 2 - 18);
     const pct = Math.min(100, Math.round((transT / D) * 100));
     ctx.fillStyle = C.acc; ctx.font = font(Math.min(15, W / 40));
-    ctx.fillText(`${t("mutando a", "mutating into")} ${STAGES[stage + 1].file} … ${pct}%`, W / 2, H / 2 + 16);
+    ctx.fillText(`${t("avanzando a", "fast-forwarding to")} ${STAGES[stage + 1].year} · ${STAGES[stage + 1].file} … ${pct}%`, W / 2, H / 2 + 16);
     ctx.textBaseline = "alphabetic";
     if (transT >= D) {
       stage++; reached = Math.max(reached, stage);
-      scene?.dispose?.();
+      scene?.dispose?.(); if (document.pointerLockElement === cvs) document.exitPointerLock?.(); if (document.pointerLockElement === cvs) document.exitPointerLock?.();
       scene = nextScene ?? STAGES[stage].make(); nextScene = null;
       lives = maxLives(); stageStartScore = score; particles.length = 0;
       state = "intro"; introT = 0;
@@ -1157,6 +1369,9 @@ export function startArcade(o: ArcadeOpts): void {
     const dt = Math.min(1 / 30, raw);
     last = now;
     if (state === "play" && raw < 0.25) governor(raw);
+    elapsed += dt;
+    const cur = state === "play" ? scene?.cursor ?? "none" : "default";
+    if (cvs.style.cursor !== cur) cvs.style.cursor = cur;
     hurtCool = Math.max(0, hurtCool - dt);
 
     if (state === "play") scene?.update(dt);
@@ -1186,8 +1401,10 @@ export function startArcade(o: ArcadeOpts): void {
     const S = STAGES[stage];
     if (state === "intro") {
       panel([
-        { text: `${t("NIVEL", "LEVEL")} ${stage + 1} · ${S.name}`, color: C.acc, size: 30, bold: true },
-        { text: `$ ./${S.file}`, color: "rgba(255,255,255,0.5)", size: 13 },
+        { text: `${S.year} · ${S.era}`, color: C.warn, size: 14, bold: true },
+        { text: `${t("NIVEL", "LEVEL")} ${stage + 1}/${STAGE_COUNT} · ${S.name}`, color: C.acc, size: 30, bold: true },
+        { text: S.story, color: "rgba(255,255,255,0.6)", size: 13 },
+        { text: `$ ./${S.file}`, color: "rgba(255,255,255,0.4)", size: 12 },
         { text: `🎯 ${S.goal}`, size: 15, bold: true },
         { text: `🕹  ${S.ctrl}`, color: C.warn, size: 13 },
         { text: `💡 ${S.tip}`, color: "rgba(255,255,255,0.7)", size: 12 },
@@ -1204,9 +1421,9 @@ export function startArcade(o: ArcadeOpts): void {
     } else if (state === "end") {
       if (Math.random() < 0.05) burstConfetti();
       panel([
-        { text: t("🏆 MUTANT.EXE COMPLETADO", "🏆 MUTANT.EXE COMPLETE"), color: C.acc, size: 30, bold: true },
+        { text: t("🏆 2019 → 2026 COMPLETADO", "🏆 2019 → 2026 COMPLETE"), color: C.acc, size: 30, bold: true },
         { text: `SCORE ${score}${score > startHi ? t(" · ¡NUEVO RÉCORD!", " · NEW HIGH SCORE!") : ""}`, color: C.warn, size: 18, bold: true },
-        { text: t("pong → 3D → naves → shooter. Ya no queda nada que mutar… por ahora.", "pong → 3D → ships → shooter. Nothing left to mutate… for now."), size: 14 },
+        { text: t("8 años, 8 juegos. Lo que sigue aún no está escrito… continuará en 2027.", "8 years, 8 games. What's next isn't written yet… to be continued in 2027."), size: 14 },
         { text: coarse ? t("toca para jugar otra vez · ✕ salir", "tap to play again · ✕ quit") : t("Enter: jugar otra vez · ESC: salir", "Enter: play again · ESC: quit"), color: "rgba(255,255,255,0.6)", size: 13 },
       ]);
     }
@@ -1230,7 +1447,8 @@ export function startArcade(o: ArcadeOpts): void {
     if (k === "escape" || k === "q") { e.preventDefault(); stop(); return; }
     if (GAME_KEYS.has(k) || k === "enter") e.preventDefault();
     if (k === "p" && (state === "play" || state === "paused")) { state = state === "play" ? "paused" : "play"; return; }
-    if (k === "enter" || (k === " " && state !== "play")) { primary(); return; }
+    if (state === "play") scene?.key?.(k, e.repeat);
+    if ((k === "enter" && state !== "play") || (k === " " && state !== "play")) { primary(); return; }
     keys.add(k);
     if (k !== " ") ptr.moved = false; // el teclado toma el control hasta que se mueva el ratón
   };
@@ -1245,24 +1463,32 @@ export function startArcade(o: ArcadeOpts): void {
       ptr.moved = true;
     }
     if (state !== "play") { primary(); return; }
+    // cámara en primera persona: el clic captura el ratón (Escape lo suelta)
+    if (scene?.look && !touch && document.pointerLockElement !== cvs) cvs.requestPointerLock?.();
     scene?.down?.(x, y, touch);
   };
   const onPointerMove = (e: PointerEvent) => {
     const tch = touches.get(e.pointerId);
     if (tch) {
       const x = lx(e.clientX), y = ly(e.clientY);
-      if (stage === 3 && tch.sx >= W / 2) ptr.lookDX += (x - tch.x) * 1.6;
+      if (!!scene?.look && tch.sx >= W / 2) { ptr.lookDX += (x - tch.x) * 1.6; ptr.lookDY += (y - tch.y) * 1.2; }
       tch.x = x; tch.y = y;
-      if (stage === 3) return;
-    } else if (stage === 3 && (document.pointerLockElement === cvs || ptr.down)) {
-      ptr.lookDX += e.movementX;
+      if (!!scene?.look) return;
+    } else if (!!scene?.look && (document.pointerLockElement === cvs || ptr.down)) {
+      ptr.lookDX += e.movementX; ptr.lookDY += e.movementY;
     }
     ptr.x = lx(e.clientX); ptr.y = ly(e.clientY); ptr.moved = true;
   };
-  const onPointerUp = (e: PointerEvent) => { touches.delete(e.pointerId); ptr.down = touches.size > 0; };
+  const onPointerUp = (e: PointerEvent) => {
+    const tch = touches.get(e.pointerId);
+    if (tch && state === "play") scene?.swipe?.(tch.x - tch.sx, tch.y - tch.sy);
+    if (state === "play") scene?.up?.(lx(e.clientX), ly(e.clientY), e.pointerType === "touch");
+    touches.delete(e.pointerId); ptr.down = touches.size > 0;
+  };
   const onBlur = () => { keys.clear(); if (state === "play") state = "paused"; };
   const onVis = () => { if (document.hidden) onBlur(); };
   const noMenu = (e: Event) => e.preventDefault();
+  const onWheel = (e: WheelEvent) => { e.preventDefault(); if (state === "play" && e.deltaY) scene?.wheel?.(Math.sign(e.deltaY)); };
 
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
@@ -1273,6 +1499,7 @@ export function startArcade(o: ArcadeOpts): void {
   window.addEventListener("blur", onBlur);
   document.addEventListener("visibilitychange", onVis);
   cvs.addEventListener("contextmenu", noMenu);
+  cvs.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("resize", resize);
 
   let stopped = false;
@@ -1280,7 +1507,7 @@ export function startArcade(o: ArcadeOpts): void {
     if (stopped) return;
     stopped = true;
     cancelAnimationFrame(raf);
-    scene?.dispose?.();
+    scene?.dispose?.(); if (document.pointerLockElement === cvs) document.exitPointerLock?.();
     window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("keyup", onKeyUp, true);
     window.removeEventListener("pointermove", onPointerMove);

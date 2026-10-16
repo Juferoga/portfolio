@@ -74,7 +74,7 @@
 
 <script>
   import { PROFILE, PROFILE_EN } from "../data/profile";
-  import { startArcade, unlockedStage, STAGE_COUNT } from "../scripts/arcade";
+  import { startArcade, unlockedStage, STAGE_COUNT, STAGE_INFO } from "../scripts/arcade";
 
   
   
@@ -727,13 +727,15 @@
     },
 
     pong: {
-      desc: "Mini-juego 🎮 — un pong que muta",
+      desc: "Mini-juego 🎮 — un pong que muta, un nivel por año",
       hidden: true,
       run: (args) => {
-        // `pong 3` salta al nivel 3 si ya llegaste ahí alguna vez
-        const want = Math.max(1, Math.min(STAGE_COUNT, parseInt(args[0] ?? "1", 10) || 1)) - 1;
+        // `pong 3` o `pong 2021` salta a ese nivel/año si ya llegaste ahí alguna vez
+        const n = parseInt(args[0] ?? "1", 10) || 1;
+        const byYear = STAGE_INFO.findIndex((s) => s.year === n);
+        const want = byYear >= 0 ? byYear : Math.max(1, Math.min(STAGE_COUNT, n)) - 1;
         const max = unlockedStage();
-        if (want > max) print(lang === "en" ? `🔒 level ${want + 1} is locked — get there first 😉` : `🔒 el nivel ${want + 1} está bloqueado — primero llega hasta allá 😉`, "warn");
+        if (want > max) print(lang === "en" ? `🔒 ${STAGE_INFO[want].year} is locked — get there first 😉` : `🔒 ${STAGE_INFO[want].year} está bloqueado — primero llega hasta allá 😉`, "warn");
         const start = Math.min(want, max);
         print(lang === "en" ? "🎮 PONG.SH — just a harmless pong… right?" : "🎮 PONG.SH — un pong inofensivo… ¿o no?", "accent");
         print(lang === "en" ? "ESC to quit · P to pause" : "ESC para salir · P para pausar", "dim");
@@ -1650,15 +1652,15 @@
       start: startAt,
       onExit: (r) => {
         pongActive = false;
-        const file = ["pong.sh", "pong3d.bin", "naves.exe", "doom.sh"][r.stage];
+        const { year, file } = STAGE_INFO[r.stage];
         print(
           lang === "en"
-            ? `← MUTANT.EXE closed · ${r.score} pts · reached ${file}${r.newHi ? " · 🏆 new high score!" : ""}`
-            : `← MUTANT.EXE cerrado · ${r.score} pts · llegaste a ${file}${r.newHi ? " · 🏆 ¡nuevo récord!" : ""}`,
+            ? `← MUTANT.EXE closed · ${r.score} pts · reached ${year} (${file})${r.newHi ? " · 🏆 new high score!" : ""}`
+            : `← MUTANT.EXE cerrado · ${r.score} pts · llegaste a ${year} (${file})${r.newHi ? " · 🏆 ¡nuevo récord!" : ""}`,
           "dim"
         );
-        if (r.cleared) unlockAchievement(lang === "en" ? "👾 Mutant — you beat all 4 levels" : "👾 Mutante — superaste los 4 niveles", `score: ${r.score}`);
-        else if (r.stage > 0) print(lang === "en" ? `tip: 'pong ${r.stage + 1}' jumps straight to level ${r.stage + 1}` : `tip: 'pong ${r.stage + 1}' te lleva directo al nivel ${r.stage + 1}`, "dim");
+        if (r.cleared) unlockAchievement(lang === "en" ? "👾 Mutant — you played through 2019 → 2026" : "👾 Mutante — recorriste 2019 → 2026", `score: ${r.score}`);
+        else if (r.stage > 0) print(lang === "en" ? `tip: 'pong ${year}' jumps straight to ${year}` : `tip: 'pong ${year}' te lleva directo a ${year}`, "dim");
         focusInput();
       },
     });
