@@ -75,7 +75,7 @@ export function startArcade(o: ArcadeOpts): void {
   // El juego vive en un espacio lógico W×H: en pantallas grandes se escala (K > 1) para que
   // nada se vea diminuto, y el búfer real se limita a un presupuesto de píxeles (PX_BUDGET)
   // para que monitores 4K / retina no hundan los FPS. Si aun así va lento, baja la calidad.
-  const PX_BUDGET = 2_000_000;
+  const PX_BUDGET = 1_600_000;
   let W = 0, H = 0, K = 1, S = 1; // S = píxeles del búfer por unidad lógica
   let hq = true; // brillos (shadowBlur) y scanlines: lo más caro, sobre todo en Firefox
   function resize() {
@@ -1365,6 +1365,10 @@ export function startArcade(o: ArcadeOpts): void {
   // ── bucle principal ─────────────────────────────────────────────────────────
   let last = performance.now(), raf = 0;
   function frame(now: number) {
+    // tope de FPS: 60 jugando y 30 en menús. En pantallas de 120 Hz el navegador pide el doble
+    // de cuadros y, sin este tope, la máquina dibuja (y se calienta) el doble para nada.
+    const gap = state === "play" || state === "trans" ? 1000 / 61 : 1000 / 31;
+    if (now - last < gap - 1) { raf = requestAnimationFrame(frame); return; }
     const raw = (now - last) / 1000;
     const dt = Math.min(1 / 30, raw);
     last = now;

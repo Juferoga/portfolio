@@ -57,7 +57,7 @@ body.site-page.collab-a11ypro {
 }
 @keyframes collabTwinkle { from { opacity: 0.45; } to { opacity: 1; } }
 
-.collab-nebula { position: absolute; border-radius: 50%; filter: blur(30px); }
+.collab-nebula { position: absolute; border-radius: 50%; filter: blur(30px); will-change: transform; }
 .collab-nebula-a {
   width: 620px; height: 620px; top: -180px; right: -160px;
   background: radial-gradient(circle, rgba(0, 163, 196, 0.32) 0%, rgba(95, 0, 178, 0.12) 70%, transparent 100%);

@@ -159,9 +159,15 @@ img.lb { cursor: zoom-in; }
   display: block;
   touch-action: none;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.9);
+  background: #000; /* opaco: el navegador no recompone la página de atrás en cada cuadro */
   cursor: none;
 }
+
+/* mientras se juega, la página queda tapada: apagamos sus capas animadas para no gastar GPU */
+body.arcade-on .crt-overlay,
+body.arcade-on .scanlines,
+body.arcade-on .flicker,
+body.arcade-on #bg-canvas { display: none; }
 
 .crt-overlay {
   pointer-events: none;
@@ -183,9 +189,8 @@ img.lb { cursor: zoom-in; }
     rgba(0, 0, 0, 0.18) 4px
   );
   background-size: 100% 4px;
-  animation: scan 8s linear infinite;
+  /* estáticas: animar background-position repintaba toda la pantalla en cada cuadro, sin parar */
 }
-@keyframes scan { to { background-position: 0 100%; } }
 
 .flicker {
   pointer-events: none;
@@ -194,7 +199,7 @@ img.lb { cursor: zoom-in; }
   z-index: 52;
   background: var(--glow);
   opacity: 0;
-  mix-blend-mode: overlay;
+  /* sin mix-blend-mode: obligaba a mezclar la página entera en cada cuadro por un destello del 3 % */
   animation: flick 6s infinite;
 }
 @keyframes flick {

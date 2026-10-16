@@ -716,13 +716,18 @@ const pad = (n: number) => String(n).padStart(2, "0");
   .tl-head > div { margin-top: 14px; }
   .tl-dot--head {
     top: 30px; left: calc(var(--x-github) - 9px); width: 18px; height: 18px;
-    background: var(--accent); border-color: var(--accent); animation: headPulse 2s infinite;
+    background: var(--accent); border-color: var(--accent);
   }
   .tl-dot--head::after { display: none; }
+  /* el pulso es un anillo que escala y se desvanece (transform + opacity): lo anima la GPU sin
+     repintar; animar box-shadow repintaba en cada cuadro y era lo más caro de la página */
+  .tl-dot--head::before {
+    content: ""; position: absolute; inset: -2px; border-radius: 50%;
+    background: var(--glow); animation: headPulse 2s ease-out infinite;
+  }
   @keyframes headPulse {
-    0% { box-shadow: 0 0 0 0 var(--glow); }
-    70% { box-shadow: 0 0 0 14px transparent; }
-    100% { box-shadow: 0 0 0 0 transparent; }
+    0% { transform: scale(1); opacity: 0.9; }
+    70%, 100% { transform: scale(2.6); opacity: 0; }
   }
   .tl-head > div { padding: 18px 22px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); background: var(--surface); }
   .tl-head-ref { font-weight: 800; color: var(--fg-bright); }
@@ -756,7 +761,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .tl-panel, .tl-caret, .tl-bar-fill, .tl-rail-fill, .tl-rail-year, .tl-dot--head, .tl-item.is-target .tl-node { animation: none !important; transition: none !important; }
+    .tl-panel, .tl-caret, .tl-bar-fill, .tl-rail-fill, .tl-rail-year, .tl-dot--head::before, .tl-item.is-target .tl-node { animation: none !important; transition: none !important; }
+    .tl-dot--head::before { display: none; }
     :global(.reveal-ready) .tl-chart:not(.in) .tl-bar-fill { transform: none; }
   }
 </style>

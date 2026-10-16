@@ -79,12 +79,15 @@
 }
 .gui-status-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 0 0 0 var(--glow); animation: pulse 2s infinite;
+  position: relative;
+}
+.gui-status-dot::before { /* anillo que pulsa con transform + opacity (sin repintar) */
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: var(--glow); animation: pulse 2s ease-out infinite;
 }
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 var(--glow); }
-  70% { box-shadow: 0 0 0 9px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% { transform: scale(1); opacity: 0.9; }
+  70%, 100% { transform: scale(3.2); opacity: 0; }
 }
 .gui-name {
   margin-top: 18px;
@@ -92,7 +95,7 @@
   background: linear-gradient(120deg, var(--fg-bright) 10%, var(--accent) 55%, var(--fg-bright) 90%);
   background-size: 220% 100%;
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: shine 9s ease-in-out infinite;
+  animation: shine 9s ease-in-out 2; /* dos pasadas y se queda quieto: el brillo repinta el título en cada cuadro */
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 22%, transparent));
 }
 @keyframes shine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
@@ -374,7 +377,8 @@ html.gui-active { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   html.gui-active { scroll-behavior: auto; }
-  .gui-name, .gui-orbit, .gui-status-dot, .gui-brand-caret { animation: none !important; }
+  .gui-name, .gui-orbit, .gui-status-dot::before, .gui-brand-caret { animation: none !important; }
+  .gui-status-dot::before { display: none; }
   .gui.reveal-ready [data-reveal] { opacity: 1; transform: none; transition: none; }
   .gui-btn:hover, .gui-card:hover, .gui-badge:hover, .gui-gallery figure:hover img, .gui-hero-photo:hover .gui-avatar { transform: none; }
   .gui-gh-langs .gh-bar > span { transition: none; }

@@ -1645,6 +1645,7 @@
   function startPong(startAt = 0) {
     if (pongActive) return;
     pongActive = true;
+    document.body.classList.add("arcade-on"); // pausa el fondo animado y las capas CRT mientras se juega
     cmdInput.blur(); // que el input no capture las teclas del juego
     startArcade({
       lang,
@@ -1652,6 +1653,7 @@
       start: startAt,
       onExit: (r) => {
         pongActive = false;
+        document.body.classList.remove("arcade-on");
         const { year, file } = STAGE_INFO[r.stage];
         print(
           lang === "en"
@@ -1747,11 +1749,19 @@
     bx.globalAlpha = 1; bx.shadowBlur = 0;
   }
 
-  function bgLoop() {
+  // los cables avanzan despacio: con 30 FPS (2 pasos por cuadro) se ven igual y el lienzo de
+  // pantalla completa se redibuja la mitad de veces (en 120 Hz, la cuarta parte). En pausa
+  // mientras MUTANT.EXE ocupa la pantalla o cuando el lienzo está oculto.
+  let bgLast = 0;
+  function bgLoop(now = 0) {
+    requestAnimationFrame(bgLoop);
+    if (now - bgLast < 32 || document.body.classList.contains("arcade-on")) return;
+    if (bgCanvas.checkVisibility && !bgCanvas.checkVisibility()) return;
+    bgLast = now;
     bx.clearRect(0, 0, bw, bh);
     const color = themeColor();
     for (let i = wires.length - 1; i >= 0; i--) {
-      const w = wires[i]; w.age++;
+      const w = wires[i]; w.age += 2;
       const total = w.grow + w.hold + w.fade;
       const MAXA = 0.26;
       let a = MAXA;
@@ -1760,12 +1770,11 @@
       if (w.age >= total) { wires.splice(i, 1); continue; }
       drawWire(w, color, Math.max(0, a));
     }
-    if (wires.length < 26 && Math.random() < 0.14) wires.push(newWire());
+    if (wires.length < 26 && Math.random() < 0.26) wires.push(newWire());
     if (!document.body.classList.contains("gui-active")) {
       const tr = terminalEl.getBoundingClientRect();
       if (tr.width && tr.height) bx.clearRect(tr.left, tr.top, tr.width, tr.height);
     }
-    requestAnimationFrame(bgLoop);
   }
   if (!reduceMotion) bgLoop();
 
