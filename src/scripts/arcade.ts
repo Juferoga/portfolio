@@ -23,7 +23,8 @@ const lsGet = (k: string) => { try { return parseInt(localStorage.getItem(k) || 
 const lsSet = (k: string, v: number) => { try { localStorage.setItem(k, String(v)); } catch {} };
 
 /** Última etapa a la que ha llegado este navegador (para `pong 3`, etc.). */
-export const unlockedStage = () => Math.min(STAGE_COUNT - 1, lsGet(LS_STAGE));
+// en desarrollo todo está desbloqueado (para probar cualquier nivel con `pong N`)
+export const unlockedStage = () => (import.meta.env.DEV ? STAGE_COUNT - 1 : Math.min(STAGE_COUNT - 1, lsGet(LS_STAGE)));
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -35,6 +36,8 @@ interface Scene {
   resize?(): void;
   down?(x: number, y: number, touch: boolean): void;
   dispose?(): void;
+  /** objetivo actual con progreso (se muestra siempre bajo la barra superior) */
+  objective(): string;
 }
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
@@ -63,15 +66,43 @@ export function startArcade(o: ArcadeOpts): void {
   const FONT = "JetBrains Mono, Courier New, monospace";
   const font = (px: number, bold = false) => `${bold ? "bold " : ""}${Math.round(px)}px ${FONT}`;
 
-  // ── lienzo (nítido en pantallas retina) ─────────────────────────────────────
-  let W = 0, H = 0, DPR = 1;
+  // ── lienzo adaptado a la pantalla ───────────────────────────────────────────
+  // El juego vive en un espacio lógico W×H: en pantallas grandes se escala (K > 1) para que
+  // nada se vea diminuto, y el búfer real se limita a un presupuesto de píxeles (PX_BUDGET)
+  // para que monitores 4K / retina no hundan los FPS. Si aun así va lento, baja la calidad.
+  const PX_BUDGET = 2_000_000;
+  let W = 0, H = 0, K = 1, S = 1; // S = píxeles del búfer por unidad lógica
+  let hq = true; // brillos (shadowBlur) y scanlines: lo más caro, sobre todo en Firefox
   function resize() {
-    DPR = Math.min(2, window.devicePixelRatio || 1);
-    W = window.innerWidth; H = window.innerHeight;
-    cvs.width = Math.round(W * DPR); cvs.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    K = Math.max(1, Math.min(vw, vh) / 820);
+    W = vw / K; H = vh / K;
+    const R = Math.min(window.devicePixelRatio || 1, hq ? 2 : 1, Math.sqrt(PX_BUDGET / (vw * vh)));
+    cvs.width = Math.round(vw * R); cvs.height = Math.round(vh * R);
+    // un <canvas> no se estira con inset:0 (usa su tamaño intrínseco): fijamos el tamaño CSS
+    cvs.style.width = `${vw}px`; cvs.style.height = `${vh}px`;
+    S = cvs.width / W;
+    ctx.setTransform(S, 0, 0, S, 0, 0);
+    ctx.imageSmoothingEnabled = true;
     scene?.resize?.();
   }
+  /** coordenadas de pantalla → espacio lógico del juego */
+  const lx = (x: number) => x / K, ly = (y: number) => y / K;
+
+  // gobernador de calidad: si el promedio de frame supera ~24 ms durante 1,5 s, apaga lo caro
+  let frameAvg = 1 / 60, slowFor = 0;
+  function governor(rawDt: number) {
+    frameAvg = frameAvg * 0.95 + rawDt * 0.05;
+    if (!hq) return;
+    slowFor = frameAvg > 0.024 ? slowFor + rawDt : 0;
+    if (slowFor > 1.5) { hq = false; resize(); }
+  }
+
+  // scanlines como patrón (una sola llamada de dibujo en vez de cientos de rectángulos)
+  const scan = document.createElement("canvas");
+  scan.width = 1; scan.height = 3;
+  const sg = scan.getContext("2d")!; sg.fillStyle = "rgba(0,0,0,0.12)"; sg.fillRect(0, 0, 1, 1);
+  const scanPattern = ctx.createPattern(scan, "repeat");
 
   // ── entrada ─────────────────────────────────────────────────────────────────
   const keys = new Set<string>();
@@ -98,6 +129,7 @@ export function startArcade(o: ArcadeOpts): void {
   let state: State = "intro";
   let stage = clamp(o.start ?? 0, 0, unlockedStage());
   let score = 0, stageStartScore = 0, lives = 3;
+  const maxLives = () => (stage === 0 ? 5 : 3); // el pong de entrada perdona más
   let hi = lsGet(LS_HI);
   const startHi = hi;
   let reached = stage;
@@ -108,16 +140,20 @@ export function startArcade(o: ArcadeOpts): void {
 
   const STAGES = [
     { file: "pong.sh", name: t("PONG", "PONG"), make: () => pong2D(),
-      goal: t("Gana 3 puntos. Cuidado con el muro.", "Score 3 points. Mind the wall."),
+      goal: t("Mete 3 goles: que la bola pase la pala rosada de la CPU (derecha).", "Score 3 goals: get the ball past the CPU's pink paddle (right)."),
+      tip: t("Devuelve 3 seguidas y la bola se enciende 🔥 · pierdes ♥ si la bola pasa tu pala", "Return 3 in a row and the ball catches fire 🔥 · you lose ♥ if the ball gets past you"),
       ctrl: coarse ? t("arrastra para mover la pala", "drag to move the paddle") : t("ratón · W/S · ↑/↓", "mouse · W/S · ↑/↓") },
     { file: "pong3d.bin", name: t("PONG 3D", "PONG 3D"), make: () => pong3D(),
-      goal: t("Gana 3 puntos. Mueve la pala al golpear para darle efecto.", "Score 3 points. Move the paddle as you hit to add spin."),
+      goal: t("Mete 3 goles: que la bola pase la pala rosada del fondo del túnel.", "Score 3 goals: get the ball past the pink paddle at the end of the tunnel."),
+      tip: t("El anillo verde marca qué tan lejos está la bola · muévete al golpear para darle efecto", "The green ring shows how far the ball is · move as you hit to add spin"),
       ctrl: coarse ? t("arrastra para mover la pala", "drag to move the paddle") : t("ratón · WASD · flechas", "mouse · WASD · arrows") },
     { file: "naves.exe", name: t("NAVES", "STARSHIPS"), make: () => shmup(),
-      goal: t("Sobrevive a 3 oleadas y derriba el MONOLITO LEGACY.", "Survive 3 waves and take down the LEGACY MONOLITH."),
+      goal: t("Sobrevive a 3 oleadas de bugs y derriba al jefe: el MONOLITO LEGACY.", "Survive 3 bug waves and take down the boss: the LEGACY MONOLITH."),
+      tip: t("Disparas solo: tú esquiva · recoge 3x (triple), ◇ (escudo) y ♥ (vida)", "You fire automatically: just dodge · grab 3x (triple), ◇ (shield) and ♥ (life)"),
       ctrl: coarse ? t("arrastra para volar · disparo automático", "drag to fly · auto-fire") : t("ratón o WASD · disparo automático", "mouse or WASD · auto-fire") },
     { file: "doom.sh", name: t("SHOOTER", "SHOOTER"), make: () => fps(),
-      goal: t("Elimina todos los bugs del laberinto… y al KERNEL PANIC.", "Wipe every bug in the maze… and the KERNEL PANIC."),
+      goal: t("Encuentra y elimina los 8 bugs del laberinto, incluido el jefe KERNEL PANIC.", "Find and wipe out the 8 bugs in the maze, boss KERNEL PANIC included."),
+      tip: t("El minimapa (arriba a la derecha) muestra los bugs que ya viste · esquiva sus bolas rosadas", "The minimap (top right) shows the bugs you've spotted · dodge their pink orbs"),
       ctrl: coarse ? t("izq: moverse · der: girar y disparar", "left: move · right: turn & shoot") : t("WASD moverse · ratón/←→ girar · clic/espacio disparar", "WASD move · mouse/←→ turn · click/space shoot") },
   ];
 
@@ -145,7 +181,7 @@ export function startArcade(o: ArcadeOpts): void {
   function saveHi() { if (score > hi) { hi = score; lsSet(LS_HI, hi); } }
 
   function startStage(i: number) {
-    stage = i; lives = 3; stageStartScore = score; hurtCool = 0;
+    stage = i; lives = maxLives(); stageStartScore = score; hurtCool = 0;
     particles.length = 0;
     scene?.dispose?.();
     scene = STAGES[i].make();
@@ -176,74 +212,103 @@ export function startArcade(o: ArcadeOpts): void {
   // 1 · PONG 2D
   // ═════════════════════════════════════════════════════════════════════════════
   function pong2D(): Scene {
-    const WIN = 3, PW = 12, M = 40;
-    let PH = 90;
-    const p = { y: 0, score: 0 }, c = { y: 0, score: 0 };
-    const wall = { w: 14, h: 120, y: 0, vy: 150 };
-    const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 8 };
+    // Es la puerta de entrada: tiene que sentirse ganable al primer intento.
+    // Pala grande y hitbox generoso, CPU con puntería imperfecta, y una mecánica de racha:
+    // tras 3 devoluciones seguidas la bola se enciende 🔥, la CPU se marea y el muro se rompe.
+    const WIN = 3, PW = 12, M = 40, FIRE_AT = 3;
+    let PH = 120, CH = 90;
+    const p = { y: 0, score: 0, vy: 0 }, c = { y: 0, score: 0 };
+    const wall = { w: 12, h: 90, y: 0, vy: 90, broken: 0 };
+    const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 9 };
     const trail: { x: number; y: number }[] = [];
-    let serveT = 0;
-    const fit = () => { PH = clamp(H * 0.15, 64, 110); wall.h = clamp(H * 0.17, 70, 140); };
+    let serveT = 0, rally = 0, aimErr = 0, touched = false, hintT = 0, popT = 0, popText = "";
+    const fire = () => rally >= FIRE_AT;
+    const fit = () => { PH = clamp(H * 0.2, 96, 150); CH = clamp(H * 0.15, 70, 110); wall.h = clamp(H * 0.12, 60, 110); };
     fit();
-    p.y = c.y = H / 2 - PH / 2; wall.y = H / 2 - wall.h / 2;
+    p.y = H / 2 - PH / 2; c.y = H / 2 - CH / 2; wall.y = H / 2 - wall.h / 2;
     function serve(dir: number) {
       ball.x = W / 2; ball.y = H / 2;
-      const sp = 360 + (p.score + c.score) * 35, a = rand(-0.35, 0.35);
+      // el primer saque va lento hacia el jugador para que entre en calor
+      const sp = touched ? 320 + p.score * 25 : 260, a = rand(-0.3, 0.3);
       ball.vx = dir * sp * Math.cos(a); ball.vy = sp * Math.sin(a);
-      trail.length = 0; serveT = 0.6;
+      trail.length = 0; serveT = 0.9; rally = 0;
     }
-    serve(Math.random() < 0.5 ? -1 : 1);
+    serve(-1);
+    const pop = (txt: string) => { popText = txt; popT = 1.1; };
 
     return {
       resize: fit,
+      objective: () => t(`🎯 Goles ${p.score}/${WIN}`, `🎯 Goals ${p.score}/${WIN}`),
       update(dt) {
+        const py0 = p.y;
         if (ptr.moved) p.y = ptr.y - PH / 2;
-        if (key("arrowup", "w")) p.y -= 560 * dt;
-        if (key("arrowdown", "s")) p.y += 560 * dt;
+        if (key("arrowup", "w")) p.y -= 620 * dt;
+        if (key("arrowdown", "s")) p.y += 620 * dt;
         p.y = clamp(p.y, 0, H - PH);
+        p.vy = (p.y - py0) / Math.max(dt, 1e-3);
+        if (p.y !== py0) touched = true;
+        hintT += dt; popT = Math.max(0, popT - dt);
 
-        // CPU: sigue la bola solo cuando viene hacia ella y con un pelín de torpeza
-        const target = ball.vx > 0 ? ball.y - PH / 2 + Math.sin(ball.x * 0.02) * 18 : H / 2 - PH / 2;
-        const cs = 300 + c.score * 30;
-        c.y = clamp(c.y + clamp(target - c.y, -cs * dt, cs * dt), 0, H - PH);
+        // CPU: solo reacciona cuando la bola pasa de cierto punto y apunta con error;
+        // con la bola en llamas se "marea" y se mueve más lento
+        let target = H / 2 - CH / 2;
+        if (ball.vx > 0 && ball.x > W * 0.4) target = ball.y - CH / 2 + aimErr;
+        const cs = (220 + c.score * 20 + p.score * 15) * (fire() ? 0.55 : 1);
+        c.y = clamp(c.y + clamp(target - c.y, -cs * dt, cs * dt), 0, H - CH);
 
-        // el muro aparece cuando alguien anota: el pong empieza a "corromperse"
-        const wallOn = p.score + c.score > 0;
-        if (wallOn) {
+        // el muro travieso aparece cuando anotas el primer punto
+        const wallOn = p.score > 0 && wall.broken <= 0;
+        wall.broken = Math.max(0, wall.broken - dt);
+        if (p.score > 0) {
           wall.y += wall.vy * dt;
           if (wall.y <= 0 || wall.y + wall.h >= H) { wall.vy *= -1; wall.y = clamp(wall.y, 0, H - wall.h); }
         }
 
         if (serveT > 0) { serveT -= dt; return; }
         ball.x += ball.vx * dt; ball.y += ball.vy * dt;
-        trail.push({ x: ball.x, y: ball.y }); if (trail.length > 14) trail.shift();
+        trail.push({ x: ball.x, y: ball.y }); if (trail.length > (fire() ? 22 : 12)) trail.shift();
 
         if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); sfx.bounce(); }
         else if (ball.y > H - ball.r) { ball.y = H - ball.r; ball.vy = -Math.abs(ball.vy); sfx.bounce(); }
 
-        const VMAX = 900;
-        if (ball.vx < 0 && ball.x - ball.r <= M + PW && ball.x > M - 6 && ball.y >= p.y - ball.r && ball.y <= p.y + PH + ball.r) {
-          ball.vx = Math.min(VMAX, Math.abs(ball.vx) * 1.07);
-          ball.vy = clamp(ball.vy + (ball.y - (p.y + PH / 2)) * 5, -VMAX * 0.7, VMAX * 0.7);
-          ball.x = M + PW + ball.r; sfx.blip(); burst(ball.x, ball.y, C.acc, 8, 160, 2);
+        const VMAX = 680, slack = ball.r * 1.6; // hitbox generoso: rozar la pala cuenta
+        if (ball.vx < 0 && ball.x - ball.r <= M + PW && ball.x > M - 14 && ball.y >= p.y - slack && ball.y <= p.y + PH + slack) {
+          // el ángulo depende de dónde pega en la pala (control clásico) + un poco del movimiento
+          const off = clamp((ball.y - (p.y + PH / 2)) / (PH / 2), -1, 1);
+          const sp = Math.min(VMAX, Math.hypot(ball.vx, ball.vy) * 1.04);
+          const ang = off * 0.85 + clamp(p.vy / 4000, -0.25, 0.25);
+          ball.vx = Math.cos(ang) * sp; ball.vy = Math.sin(ang) * sp;
+          ball.x = M + PW + ball.r;
+          rally++; addScore(fire() ? 50 : 10);
+          aimErr = rand(-1, 1) * CH * (fire() ? 0.95 : 0.6);
+          if (rally === FIRE_AT) { pop(t("🔥 ¡EN LLAMAS!", "🔥 ON FIRE!")); sfx.power(); shakeIt(6); }
+          else if (rally > FIRE_AT) pop(`RALLY x${rally}`);
+          sfx.blip(); burst(ball.x, ball.y, fire() ? C.warn : C.acc, fire() ? 16 : 8, 180, 2);
         }
-        if (ball.vx > 0 && ball.x + ball.r >= W - M - PW && ball.x < W - M + 6 && ball.y >= c.y - ball.r && ball.y <= c.y + PH + ball.r) {
-          ball.vx = -Math.min(VMAX, Math.abs(ball.vx) * 1.05);
-          ball.vy = clamp(ball.vy + (ball.y - (c.y + PH / 2)) * 5, -VMAX * 0.7, VMAX * 0.7);
+        if (ball.vx > 0 && ball.x + ball.r >= W - M - PW && ball.x < W - M + 6 && ball.y >= c.y - ball.r && ball.y <= c.y + CH + ball.r) {
+          const off = clamp((ball.y - (c.y + CH / 2)) / (CH / 2), -1, 1);
+          const sp = Math.hypot(ball.vx, ball.vy);
+          ball.vx = -Math.cos(off * 0.7) * sp; ball.vy = Math.sin(off * 0.7) * sp;
           ball.x = W - M - PW - ball.r; o.beep(600, 14);
         }
         const wx = W / 2 - wall.w / 2;
         if (wallOn && ball.x + ball.r >= wx && ball.x - ball.r <= wx + wall.w && ball.y + ball.r >= wall.y && ball.y - ball.r <= wall.y + wall.h) {
-          if (ball.vx > 0) { ball.vx = -Math.abs(ball.vx); ball.x = wx - ball.r; } else { ball.vx = Math.abs(ball.vx); ball.x = wx + wall.w + ball.r; }
-          sfx.wall(); burst(ball.x, ball.y, C.warn, 10, 180, 2);
+          if (fire()) {
+            // la bola en llamas atraviesa y rompe el muro por un rato
+            wall.broken = 4; addScore(150); pop(t("💥 ¡MURO ROTO!", "💥 WALL SMASHED!"));
+            sfx.boom(); shakeIt(10); burst(W / 2, wall.y + wall.h / 2, C.warn, 34, 320, 4);
+          } else {
+            if (ball.vx > 0) { ball.vx = -Math.abs(ball.vx); ball.x = wx - ball.r; } else { ball.vx = Math.abs(ball.vx); ball.x = wx + wall.w + ball.r; }
+            sfx.wall(); burst(ball.x, ball.y, C.warn, 10, 180, 2);
+          }
         }
 
         if (ball.x < -30) {
           c.score++; burst(10, ball.y, C.err, 24, 300);
-          if (hurt()) serve(1);
+          if (hurt()) serve(-1);
         } else if (ball.x > W + 30) {
           p.score++; addScore(250); sfx.point(); burst(W - 10, ball.y, C.acc, 24, 300);
-          if (p.score >= WIN) clearStage(); else serve(-1);
+          if (p.score >= WIN) clearStage(); else { pop(p.score === 1 ? t("¡PUNTO! …¿y ese muro?", "POINT! …what's that wall?") : t("¡PUNTO!", "POINT!")); serve(-1); }
         }
       },
       draw() {
@@ -253,18 +318,38 @@ export function startArcade(o: ArcadeOpts): void {
         ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.font = font(64, true); ctx.textAlign = "center";
         ctx.fillText(String(p.score), W / 2 - 90, 120); ctx.fillText(String(c.score), W / 2 + 90, 120);
         ctx.font = font(12); ctx.fillText(t("TÚ", "YOU"), W / 2 - 90, 142); ctx.fillText("CPU", W / 2 + 90, 142);
+        const hot = fire();
         for (let i = 0; i < trail.length; i++) {
-          ctx.globalAlpha = (i / trail.length) * 0.45; ctx.fillStyle = C.acc;
-          ctx.fillRect(trail[i].x - 4, trail[i].y - 4, 8, 8);
+          ctx.globalAlpha = (i / trail.length) * (hot ? 0.7 : 0.45); ctx.fillStyle = hot ? (i % 2 ? C.warn : C.err) : C.acc;
+          const sz = hot ? 4 + (i / trail.length) * 8 : 8;
+          ctx.fillRect(trail[i].x - sz / 2, trail[i].y - sz / 2, sz, sz);
         }
         ctx.globalAlpha = 1;
-        glow(C.br, 14); ctx.fillStyle = C.br;
-        ctx.fillRect(M, p.y, PW, PH); ctx.fillRect(W - M - PW, c.y, PW, PH);
-        if (p.score + c.score > 0) { glow(C.warn, 18); ctx.fillStyle = C.warn; ctx.fillRect(W / 2 - wall.w / 2, wall.y, wall.w, wall.h); }
+        glow(C.br, 14); ctx.fillStyle = C.br; ctx.fillRect(M, p.y, PW, PH);
+        glow(C.pink, 10); ctx.fillStyle = hot ? "rgba(255,61,154,0.55)" : C.pink; ctx.fillRect(W - M - PW, c.y, PW, CH);
+        if (p.score > 0 && wall.broken <= 0) { glow(C.warn, 18); ctx.fillStyle = C.warn; ctx.fillRect(W / 2 - wall.w / 2, wall.y, wall.w, wall.h); }
         if (serveT <= 0 || Math.floor(serveT * 10) % 2 === 0) {
-          glow(C.acc, 18); ctx.fillStyle = C.fg; ctx.fillRect(ball.x - ball.r, ball.y - ball.r, ball.r * 2, ball.r * 2);
+          glow(hot ? C.warn : C.acc, hot ? 26 : 18); ctx.fillStyle = hot ? "#fff3c4" : C.fg;
+          ctx.fillRect(ball.x - ball.r, ball.y - ball.r, ball.r * 2, ball.r * 2);
         }
         glow(null);
+        // racha visible (barra de 3 pasos hacia el modo fuego)
+        ctx.textAlign = "left"; ctx.font = font(12, true);
+        for (let i = 0; i < FIRE_AT; i++) { ctx.fillStyle = i < rally ? C.warn : "rgba(255,255,255,0.15)"; ctx.fillRect(M + i * 16, H - 52, 12, 6); }
+        ctx.fillStyle = hot ? C.warn : "rgba(255,255,255,0.45)";
+        ctx.fillText(hot ? `🔥 x${rally}` : t("racha", "streak"), M + FIRE_AT * 16 + 6, H - 46);
+        // pista inicial si aún no ha movido la pala
+        if (!touched && hintT > 0.6) {
+          const a = 0.5 + Math.sin(hintT * 5) * 0.3;
+          ctx.globalAlpha = a; ctx.fillStyle = C.br; ctx.textAlign = "left"; ctx.font = font(14, true);
+          ctx.fillText(coarse ? t("↕ arrastra", "↕ drag") : t("↕ mueve el ratón", "↕ move your mouse"), M + PW + 16, p.y + PH / 2 + 5);
+          ctx.globalAlpha = 1;
+        }
+        if (popT > 0) {
+          ctx.globalAlpha = Math.min(1, popT * 2); ctx.textAlign = "center"; ctx.font = font(26, true);
+          ctx.fillStyle = popText.startsWith("🔥") || popText.startsWith("💥") ? C.warn : C.acc;
+          ctx.fillText(popText, W / 2, H / 2 - 60 - (1.1 - popT) * 30); ctx.globalAlpha = 1;
+        }
       },
     };
   }
@@ -299,6 +384,7 @@ export function startArcade(o: ArcadeOpts): void {
 
     return {
       resize: fit,
+      objective: () => t(`🎯 Goles ${pl.score}/${WIN}`, `🎯 Goals ${pl.score}/${WIN}`),
       update(dt) {
         const px0 = pl.x, py0 = pl.y;
         if (ptr.moved) { pl.x = (ptr.x - cx) / RX; pl.y = (ptr.y - cy) / RY; }
@@ -394,11 +480,11 @@ export function startArcade(o: ArcadeOpts): void {
     type Enemy = { x: number; y: number; vx: number; vy: number; hp: number; max: number; r: number; kind: "bug" | "tank" | "rock"; t: number; cool: number; base: number; amp: number; flash: number };
     type Bullet = { x: number; y: number; vx: number; vy: number; r: number };
     type Power = { x: number; y: number; kind: "triple" | "shield" | "life"; t: number };
-    const ship = { x: W / 2, y: H - 110, r: 14, cool: 0, triple: 0, shield: false, inv: 0 };
+    const ship = { x: W / 2, y: H - 110, r: 14, cool: 0, triple: 0, shield: true, inv: 0 }; // escudo de regalo
     const shots: Bullet[] = [], foes: Bullet[] = [], enemies: Enemy[] = [], powers: Power[] = [];
     const stars = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.2, 1) }));
     let wave = 0, waveT = 1.2, spawnQ: (() => void)[] = [], spawnT = 0, bossDead = 0;
-    const boss = { on: false, x: W / 2, y: -140, hp: 160, max: 160, t: 0, cool: 0, ring: 0, flash: 0, w: 150 };
+    const boss = { on: false, x: W / 2, y: -140, hp: 120, max: 120, t: 0, cool: 0, ring: 0, flash: 0, w: 150 };
 
     const enemy = (e: Partial<Enemy> & Pick<Enemy, "x" | "y" | "kind">) => {
       const base: Enemy = { vx: 0, vy: 110, hp: 1, max: 1, r: 16, t: 0, cool: rand(1, 2.5), base: e.x, amp: 0, flash: 0, ...e } as Enemy;
@@ -435,6 +521,9 @@ export function startArcade(o: ArcadeOpts): void {
     }
 
     return {
+      objective: () => boss.on
+        ? t(`🎯 Derriba al MONOLITO LEGACY · ${Math.ceil((boss.hp / boss.max) * 100)}%`, `🎯 Take down the LEGACY MONOLITH · ${Math.ceil((boss.hp / boss.max) * 100)}%`)
+        : t(`🎯 Sobrevive · oleada ${Math.max(1, wave)}/3`, `🎯 Survive · wave ${Math.max(1, wave)}/3`),
       update(dt) {
         // estrellas en paralaje
         for (const s of stars) { s.y += s.z * dt * (boss.on ? 0.35 : 0.22); if (s.y > 1) { s.y -= 1; s.x = Math.random(); } }
@@ -481,7 +570,7 @@ export function startArcade(o: ArcadeOpts): void {
           else e.x += e.vx * dt;
           if (e.kind === "tank" && e.y > 40) {
             e.cool -= dt;
-            if (e.cool <= 0) { e.cool = rand(1.1, 1.8); const a = Math.atan2(ship.y - e.y, ship.x - e.x); for (const d of [-0.18, 0, 0.18]) fireAt(e.x, e.y, a + d, 230); }
+            if (e.cool <= 0) { e.cool = rand(1.6, 2.4); const a = Math.atan2(ship.y - e.y, ship.x - e.x); for (const d of [-0.18, 0, 0.18]) fireAt(e.x, e.y, a + d, 230); }
           }
           if (Math.hypot(e.x - ship.x, e.y - ship.y) < e.r + ship.r * 0.7) { e.hp = 0; kill(e); playerHit(); }
         }
@@ -494,13 +583,13 @@ export function startArcade(o: ArcadeOpts): void {
           boss.x = W / 2 + Math.sin(boss.t * (rage ? 0.9 : 0.6)) * W * 0.3;
           boss.cool -= dt; boss.ring -= dt;
           if (boss.cool <= 0) {
-            boss.cool = rage ? 0.55 : 0.85;
+            boss.cool = rage ? 0.75 : 1.05;
             const a = Math.atan2(ship.y - boss.y, ship.x - boss.x);
             for (const d of [-0.25, 0, 0.25]) fireAt(boss.x, boss.y + 30, a + d, rage ? 300 : 250);
           }
           if (boss.ring <= 0) {
             boss.ring = rage ? 1.6 : 2.4;
-            const n = rage ? 22 : 16, off = boss.t;
+            const n = rage ? 16 : 12, off = boss.t;
             for (let i = 0; i < n; i++) fireAt(boss.x, boss.y, off + (i / n) * TAU, 170);
           }
           if (rage && Math.floor(boss.t * 12) % 2 === 0) fireAt(boss.x, boss.y, boss.t * 4, 190);
@@ -599,8 +688,8 @@ export function startArcade(o: ArcadeOpts): void {
           ctx.fillStyle = col; ctx.beginPath(); ctx.arc(boss.x, boss.y + 8, 15, 0, TAU); ctx.fill();
           ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(boss.x + ex, boss.y + 10, 6, 0, TAU); ctx.fill();
           ctx.fillStyle = C.err; ctx.font = font(11, true);
-          ctx.fillText(t("MONOLITO LEGACY", "LEGACY MONOLITH"), W / 2, 58);
-          hpBar(W * 0.2, 68, W * 0.6, boss.hp / boss.max, C.err);
+          ctx.fillText(t("MONOLITO LEGACY", "LEGACY MONOLITH"), W / 2, 94);
+          hpBar(W * 0.2, 102, W * 0.6, boss.hp / boss.max, C.err);
         }
         // balas
         glow(C.acc, 10); ctx.fillStyle = C.br;
@@ -644,7 +733,7 @@ export function startArcade(o: ArcadeOpts): void {
       "#.....#.e.#....#",
       "#..2..##.##.2..#",
       "#..............#",
-      "#.e.###33###.e.#",
+      "#.e.##3..3##.e.#", // puerta a la sala del jefe
       "#...#..B...#...#",
       "#...#......#...#",
       "################",
@@ -701,7 +790,7 @@ export function startArcade(o: ArcadeOpts): void {
       }),
     };
 
-    const fit = () => { colW = Math.max(2, Math.ceil(W / 420)); zbuf = new Float32Array(Math.ceil(W / colW) + 1); };
+    const fit = () => { colW = Math.max(hq ? 2 : 3, Math.ceil(W / (hq ? 420 : 300))); zbuf = new Float32Array(Math.ceil(W / colW) + 1); };
     fit();
 
     function los(ax: number, ay: number, bx: number, by: number) {
@@ -749,6 +838,10 @@ export function startArcade(o: ArcadeOpts): void {
 
     return {
       resize: fit,
+      objective: () => {
+        const left = mobs.filter((m) => m.hp > 0).length;
+        return t(`🎯 Bugs eliminados ${total - left}/${total}`, `🎯 Bugs wiped ${total - left}/${total}`);
+      },
       down(x, _y, touch) {
         if (!touch) { onLockClick(); shoot(); }
         else if (x > W / 2) shoot();
@@ -910,20 +1003,18 @@ export function startArcade(o: ArcadeOpts): void {
         ctx.stroke();
 
         // minimapa
-        const ms = clamp(Math.min(W, H) / 110, 4, 8), ox = W - MW * ms - 16, oy = 56;
+        const ms = clamp(Math.min(W, H) / 110, 4, 8), ox = W - MW * ms - 16, oy = W < 640 ? 84 : 56;
         ctx.globalAlpha = 0.85; ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(ox - 4, oy - 4, MW * ms + 8, MH * ms + 8);
         for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
           const c = grid[y][x];
           if (c !== ".") { ctx.fillStyle = c === "2" ? C.warn : c === "3" ? C.cyan : C.dim; ctx.fillRect(ox + x * ms, oy + y * ms, ms, ms); }
         }
-        for (const m of mobs) if (m.hp > 0 && m.seen) { ctx.fillStyle = m.boss ? C.err : C.pink; ctx.fillRect(ox + m.x * ms - 2, oy + m.y * ms - 2, 4, 4); }
+        const reveal = mobs.filter((mm) => mm.hp > 0).length <= 2; // los últimos se marcan siempre
+        for (const m of mobs) if (m.hp > 0 && (m.seen || reveal)) { ctx.fillStyle = m.boss ? C.err : C.pink; ctx.fillRect(ox + m.x * ms - 2, oy + m.y * ms - 2, 4, 4); }
         ctx.fillStyle = C.br; ctx.beginPath(); ctx.arc(ox + pl.x * ms, oy + pl.y * ms, 2.5, 0, TAU); ctx.fill();
         ctx.strokeStyle = C.br; ctx.beginPath(); ctx.moveTo(ox + pl.x * ms, oy + pl.y * ms); ctx.lineTo(ox + (pl.x + dirX * 1.4) * ms, oy + (pl.y + dirY * 1.4) * ms); ctx.stroke();
         ctx.globalAlpha = 1;
 
-        const left = mobs.filter((m) => m.hp > 0).length;
-        ctx.textAlign = "left"; ctx.font = font(13, true); ctx.fillStyle = C.pink;
-        ctx.fillText(`🐛 ${total - left}/${total}`, 20, H - 46);
         if (won > 0) {
           ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, H / 2 - 50, W, 100);
           ctx.textAlign = "center"; ctx.fillStyle = C.acc; ctx.font = font(22, true);
@@ -944,7 +1035,7 @@ export function startArcade(o: ArcadeOpts): void {
 
   // ── utilidades de dibujo ────────────────────────────────────────────────────
   function glow(color: string | null, blur = 12) {
-    if (!color) { ctx.shadowBlur = 0; return; }
+    if (!color || !hq) { ctx.shadowBlur = 0; return; }
     ctx.shadowColor = color; ctx.shadowBlur = blur;
   }
   function hpBar(x: number, y: number, w: number, f: number, col: string) {
@@ -967,9 +1058,18 @@ export function startArcade(o: ArcadeOpts): void {
     ctx.fillText(`SCORE ${String(score).padStart(6, "0")}`, W / 2, 20);
     ctx.textAlign = "right";
     const right = coarse ? W - 56 : W - 16; // en táctil, la ✕ ocupa la esquina
-    ctx.fillStyle = C.err; ctx.fillText("♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives)), right, 20);
+    ctx.fillStyle = C.err; ctx.fillText("♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, maxLives() - lives)), right, 20);
     if (W > 620) { ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.font = font(12); ctx.fillText(`HI ${String(Math.max(hi, score)).padStart(6, "0")}`, right - 94, 20); }
     if (coarse) { ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.font = font(20, true); ctx.fillText("✕", W - 16, 21); }
+    // objetivo siempre visible, justo bajo la barra
+    if (scene && state !== "trans") {
+      const txt = scene.objective();
+      ctx.font = font(W < 520 ? 12 : 13, true);
+      const tw = ctx.measureText(txt).width + 24;
+      ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.strokeStyle = C.dim; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 48, tw, 26, 13); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = C.br; ctx.textAlign = "center"; ctx.fillText(txt, W / 2, 61);
+    }
     ctx.textBaseline = "alphabetic";
     ctx.textAlign = "center"; ctx.font = font(W < 520 ? 10 : 12); ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.fillText(`${S.ctrl} · ${coarse ? t("✕ salir", "✕ quit") : t("P pausa · ESC salir", "P pause · ESC quit")}`, W / 2, H - 18);
@@ -1018,10 +1118,10 @@ export function startArcade(o: ArcadeOpts): void {
     const k = transT < half ? transT / half : 1 - (transT - half) / (D - half); // intensidad 0→1→0
     if (!reduce) {
       // franjas desplazadas (se copia el propio lienzo sobre sí mismo)
-      const n = Math.floor(4 + k * 18);
+      const n = Math.floor((hq ? 4 : 2) + k * (hq ? 18 : 6));
       for (let i = 0; i < n; i++) {
         const y = Math.random() * H, h = rand(4, 40) * k + 2, dx = rand(-1, 1) * 90 * k;
-        ctx.drawImage(cvs, 0, y * DPR, cvs.width, h * DPR, dx, y, W, h);
+        ctx.drawImage(cvs, 0, y * S, cvs.width, h * S, dx, y, W, h);
       }
       // aberración cromática a lo bruto
       ctx.globalCompositeOperation = "lighter";
@@ -1045,7 +1145,7 @@ export function startArcade(o: ArcadeOpts): void {
       stage++; reached = Math.max(reached, stage);
       scene?.dispose?.();
       scene = nextScene ?? STAGES[stage].make(); nextScene = null;
-      lives = 3; stageStartScore = score; particles.length = 0;
+      lives = maxLives(); stageStartScore = score; particles.length = 0;
       state = "intro"; introT = 0;
     }
   }
@@ -1053,8 +1153,10 @@ export function startArcade(o: ArcadeOpts): void {
   // ── bucle principal ─────────────────────────────────────────────────────────
   let last = performance.now(), raf = 0;
   function frame(now: number) {
-    const dt = Math.min(1 / 30, (now - last) / 1000);
+    const raw = (now - last) / 1000;
+    const dt = Math.min(1 / 30, raw);
     last = now;
+    if (state === "play" && raw < 0.25) governor(raw);
     hurtCool = Math.max(0, hurtCool - dt);
 
     if (state === "play") scene?.update(dt);
@@ -1077,7 +1179,7 @@ export function startArcade(o: ArcadeOpts): void {
 
     if (flash > 0) { ctx.fillStyle = `rgba(255,60,60,${flash})`; ctx.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt * 1.5); }
     // scanlines muy suaves para mantener la estética CRT de la terminal
-    if (!reduce) { ctx.fillStyle = "rgba(0,0,0,0.12)"; for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1); }
+    if (!reduce && hq && scanPattern) { ctx.fillStyle = scanPattern; ctx.fillRect(0, 0, W, H); }
 
     if (state !== "trans") drawHUD();
 
@@ -1086,8 +1188,9 @@ export function startArcade(o: ArcadeOpts): void {
       panel([
         { text: `${t("NIVEL", "LEVEL")} ${stage + 1} · ${S.name}`, color: C.acc, size: 30, bold: true },
         { text: `$ ./${S.file}`, color: "rgba(255,255,255,0.5)", size: 13 },
-        { text: S.goal, size: 15 },
-        { text: S.ctrl, color: C.warn, size: 13 },
+        { text: `🎯 ${S.goal}`, size: 15, bold: true },
+        { text: `🕹  ${S.ctrl}`, color: C.warn, size: 13 },
+        { text: `💡 ${S.tip}`, color: "rgba(255,255,255,0.7)", size: 12 },
         { text: Math.floor(introT * 2) % 2 ? pressKey : " ", color: "rgba(255,255,255,0.6)", size: 13 },
       ]);
     } else if (state === "paused") {
@@ -1134,25 +1237,27 @@ export function startArcade(o: ArcadeOpts): void {
   const onKeyUp = (e: KeyboardEvent) => { keys.delete(e.key.toLowerCase()); };
   const onPointerDown = (e: PointerEvent) => {
     const touch = e.pointerType === "touch";
-    ptr.x = e.clientX; ptr.y = e.clientY; ptr.down = true;
+    const x = lx(e.clientX), y = ly(e.clientY);
+    ptr.x = x; ptr.y = y; ptr.down = true;
     if (touch) {
-      touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
-      if (e.clientX > W - 56 && e.clientY < 44) { stop(); return; } // ✕
+      touches.set(e.pointerId, { x, y, sx: x, sy: y });
+      if (x > W - 56 && y < 44) { stop(); return; } // ✕
       ptr.moved = true;
     }
     if (state !== "play") { primary(); return; }
-    scene?.down?.(e.clientX, e.clientY, touch);
+    scene?.down?.(x, y, touch);
   };
   const onPointerMove = (e: PointerEvent) => {
     const tch = touches.get(e.pointerId);
     if (tch) {
-      if (stage === 3 && tch.sx >= W / 2) ptr.lookDX += (e.clientX - tch.x) * 1.6;
-      tch.x = e.clientX; tch.y = e.clientY;
+      const x = lx(e.clientX), y = ly(e.clientY);
+      if (stage === 3 && tch.sx >= W / 2) ptr.lookDX += (x - tch.x) * 1.6;
+      tch.x = x; tch.y = y;
       if (stage === 3) return;
     } else if (stage === 3 && (document.pointerLockElement === cvs || ptr.down)) {
       ptr.lookDX += e.movementX;
     }
-    ptr.x = e.clientX; ptr.y = e.clientY; ptr.moved = true;
+    ptr.x = lx(e.clientX); ptr.y = ly(e.clientY); ptr.moved = true;
   };
   const onPointerUp = (e: PointerEvent) => { touches.delete(e.pointerId); ptr.down = touches.size > 0; };
   const onBlur = () => { keys.clear(); if (state === "play") state = "paused"; };

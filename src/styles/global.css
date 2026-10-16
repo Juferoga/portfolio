@@ -154,6 +154,10 @@ img.lb { cursor: zoom-in; }
 #game-canvas {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
   z-index: 9999;
   background: rgba(0, 0, 0, 0.9);
   cursor: none;
