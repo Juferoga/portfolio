@@ -21,7 +21,7 @@
       <button type="button" id="gui-btn" class="tb-btn tb-btn-wide" title="Cambiar a versión visual" aria-label="Cambiar a versión visual">🖥 visual</button>
       <button type="button" id="lang-btn" class="tb-btn" title="Idioma ES/EN">🌐 ES</button>
       <button type="button" id="sound-btn" class="tb-btn" title="Sonido de tecleo (on/off)" aria-label="Sonido de tecleo" aria-pressed="true">🔊</button>
-      <button type="button" id="theme-btn" class="tb-btn" title="Cambiar tema (verde/ámbar/azul)" aria-label="Cambiar tema de color (verde, ámbar, azul)">◐</button>
+      <button type="button" id="theme-btn" class="tb-btn" title="Cambiar tema (azul/verde/ámbar)" aria-label="Cambiar tema de color (azul, verde, ámbar)">◐</button>
     </div>
   </header>
 
@@ -703,12 +703,12 @@
     theme: {
       desc: "Cambiar tema",
       run: (args) => {
-        const themes = ["", "theme-amber", "theme-cyber"];
-        const names = ["verde", "ámbar", "azul"];
+        const themes = ["", "theme-green", "theme-amber"];
+        const names = ["azul", "verde", "ámbar"];
         const byName: Record<string, number> = {
-          verde: 0, green: 0,
-          ambar: 1, ámbar: 1, amber: 1,
-          azul: 2, cyber: 2, blue: 2,
+          azul: 0, cyber: 0, blue: 0,
+          verde: 1, green: 1,
+          ambar: 2, ámbar: 2, amber: 2,
         };
         let idx: number;
         const arg = (args[0] ?? "").toLowerCase();
@@ -1345,7 +1345,7 @@
   themeBtn.addEventListener("click", () => COMMANDS.theme.run([]));
   try {
     const saved = localStorage.getItem("theme");
-    if (saved === "theme-amber" || saved === "theme-cyber") document.body.classList.add(saved);
+    if (saved === "theme-amber" || saved === "theme-green") document.body.classList.add(saved);
   } catch {}
 
   
@@ -1604,12 +1604,12 @@
     const cols = Math.floor(canvas.width / fontSize);
     const drops = new Array(cols).fill(1);
     const chars = "ｱｲｳｴｵｶｷｸ01アカサタナ<>{}[]#$%&/=jufERoga";
-    const color = getComputedStyle(document.body).getPropertyValue("--fg") || "#33ff66";
+    const color = getComputedStyle(document.body).getPropertyValue("--fg") || "#4dd2ff";
 
     const draw = () => {
       ctx.fillStyle = "rgba(0,0,0,0.06)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = color.trim() || "#33ff66";
+      ctx.fillStyle = color.trim() || "#4dd2ff";
       ctx.font = fontSize + "px monospace";
       for (let i = 0; i < drops.length; i++) {
         const ch = chars[Math.floor(Math.random() * chars.length)];
@@ -1703,7 +1703,7 @@
   type Wire = { pts: { x: number; y: number }[]; age: number; grow: number; hold: number; fade: number };
   const wires: Wire[] = [];
   const themeColor = () =>
-    (getComputedStyle(document.body).getPropertyValue("--accent") || "#00ffaa").trim();
+    (getComputedStyle(document.body).getPropertyValue("--accent") || "#00e5ff").trim();
 
   function newWire(): Wire {
     const edge = Math.floor(Math.random() * 4);

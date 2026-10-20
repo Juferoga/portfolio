@@ -12,25 +12,25 @@
 
 :root {
 
-  --bg: #0a0e0a;
-  --bg-deep: #050805;
-  --fg: #33ff66;
-  --fg-dim: #1f9943;
-  --fg-bright: #aaffbb;
-  --accent: #00ffaa;
-  --warn: #ffcc33;
-  --error: #ff5555;
-  --link: #66ffcc;
-  --glow: rgba(51, 255, 102, 0.55);
+  --bg: #050912;
+  --bg-deep: #02040a;
+  --fg: #4dd2ff;
+  --fg-dim: #3f96c2; /* ≥4.5:1 sobre --bg (contraste AA) */
+  --fg-bright: #b3ecff;
+  --accent: #00e5ff;
+  --warn: #ffd24d;
+  --error: #ff5c8a;
+  --link: #8af0ff;
+  --glow: rgba(77, 210, 255, 0.5);
   --shadow: rgba(0, 0, 0, 0.6);
-  --select: rgba(51, 255, 102, 0.25);
+  --select: rgba(77, 210, 255, 0.25);
 
   /* Tokens de la vista visual: texto de lectura menos saturado que el neón de la terminal */
-  --text: #d5e6da;
-  --text-dim: #8ea597;
-  --surface: rgba(140, 255, 170, 0.035);
-  --surface-hi: rgba(140, 255, 170, 0.07);
-  --border: rgba(140, 255, 170, 0.14);
+  --text: #d8e7f2;
+  --text-dim: #8fa7ba;
+  --surface: rgba(120, 210, 255, 0.04);
+  --surface-hi: rgba(120, 210, 255, 0.08);
+  --border: rgba(120, 210, 255, 0.16);
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: "JetBrains Mono", "Courier New", monospace;
 }
@@ -54,23 +54,23 @@ body.theme-amber {
   --border: rgba(255, 200, 120, 0.16);
 }
 
-body.theme-cyber {
-  --bg: #050912;
-  --bg-deep: #02040a;
-  --fg: #4dd2ff;
-  --fg-dim: #3f96c2; /* ≥4.5:1 sobre --bg (contraste AA) */
-  --fg-bright: #b3ecff;
-  --accent: #00e5ff;
-  --warn: #ffd24d;
-  --error: #ff5c8a;
-  --link: #8af0ff;
-  --glow: rgba(77, 210, 255, 0.5);
-  --select: rgba(77, 210, 255, 0.25);
-  --text: #d8e7f2;
-  --text-dim: #8fa7ba;
-  --surface: rgba(120, 210, 255, 0.04);
-  --surface-hi: rgba(120, 210, 255, 0.08);
-  --border: rgba(120, 210, 255, 0.16);
+body.theme-green {
+  --bg: #0a0e0a;
+  --bg-deep: #050805;
+  --fg: #33ff66;
+  --fg-dim: #1f9943;
+  --fg-bright: #aaffbb;
+  --accent: #00ffaa;
+  --warn: #ffcc33;
+  --error: #ff5555;
+  --link: #66ffcc;
+  --glow: rgba(51, 255, 102, 0.55);
+  --select: rgba(51, 255, 102, 0.25);
+  --text: #d5e6da;
+  --text-dim: #8ea597;
+  --surface: rgba(140, 255, 170, 0.035);
+  --surface-hi: rgba(140, 255, 170, 0.07);
+  --border: rgba(140, 255, 170, 0.14);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

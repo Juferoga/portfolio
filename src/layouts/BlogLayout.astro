@@ -86,7 +86,7 @@ const jsonLd = publishedDate
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content="https://juferoga.pro/og.png" />
 
-    <meta name="theme-color" content="#0a0e0a" />
+    <meta name="theme-color" content="#050912" />
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href={canonical} />
     <link rel="sitemap" href="/sitemap-index.xml" />
@@ -102,7 +102,7 @@ const jsonLd = publishedDate
   <body class:list={["site-page", bodyClass]}>
     <!-- mismo tema de color que eligió el visitante en la terminal / versión visual -->
     <script is:inline>
-      try { var th = localStorage.getItem("theme"); if (th === "theme-amber" || th === "theme-cyber") document.body.classList.add(th); } catch (e) {}
+      try { var th = localStorage.getItem("theme"); if (th === "theme-amber" || th === "theme-green") document.body.classList.add(th); } catch (e) {}
     </script>
     <div class="site-progress" aria-hidden="true"><span></span></div>
 

@@ -64,8 +64,8 @@ export function startArcade(o: ArcadeOpts): void {
   const css = getComputedStyle(document.body);
   const v = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;
   const C = {
-    fg: v("--fg", "#33ff66"), dim: v("--fg-dim", "#1f9943"), br: v("--fg-bright", "#aaffbb"),
-    acc: v("--accent", "#00ffaa"), warn: v("--warn", "#ffcc33"), err: v("--error", "#ff5555"),
+    fg: v("--fg", "#4dd2ff"), dim: v("--fg-dim", "#3f96c2"), br: v("--fg-bright", "#b3ecff"),
+    acc: v("--accent", "#00e5ff"), warn: v("--warn", "#ffd24d"), err: v("--error", "#ff5c8a"),
     pink: "#ff3d9a", cyan: "#3dd9ff", violet: "#a970ff",
   };
   const FONT = "JetBrains Mono, Courier New, monospace";
